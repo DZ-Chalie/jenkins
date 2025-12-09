@@ -6,7 +6,7 @@ pipeline {
         REGISTRY = 'harbor.local.net'
         PROJECT = 'charlie'
         // Docker 이미지 이름 (frontend, backend)
-        IMAGE_NAME = ['frontend', 'backend']
+        IMAGE_NAME = ["frontend", "backend"]
         // Harbor에 로그인할 자격 증명 ID
         CREDENTIAL_ID = 'harbor-login'
 
