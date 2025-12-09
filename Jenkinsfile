@@ -6,13 +6,13 @@ pipeline {
         REGISTRY = 'harbor.local.net'
         PROJECT = 'charlie'
         // Docker 이미지 이름 (frontend, backend)
-        IMAGE_NAME = ["frontend", "backend"]
+        IMAGE_NAME = "frontend,backend"  // 배열을 문자열로 수정
         // Harbor에 로그인할 자격 증명 ID
         CREDENTIAL_ID = 'harbor-login'
 
         // SonarQube URL 및 토큰 설정
         SONARQUBE_URL = 'http://192.168.0.181:9000'  // SonarQube 서버 주소
-        SONARQUBE_TOKEN = 'sqa_4ca398bbb038ee6fb87aefd540c22ac980f55e8c'  // SonarQube 토큰
+        SONARQUBE_TOKEN = 'your-sonarqube-token'  // SonarQube 토큰
         SONARQUBE = 'SonarQube'  // SonarQube 서버 이름
     }
 
@@ -20,7 +20,7 @@ pipeline {
         stage('SCM') {
             steps {
                 // GitHub에서 소스 코드 체크아웃
-                checkout scm
+                git 'https://github.com/DZ-Chalie/jenkins.git'
             }
         }
 
@@ -57,7 +57,8 @@ pipeline {
             steps {
                 script {
                     // 각 이미지에 대해 빌드 및 푸시
-                    IMAGE_NAME.each { image ->
+                    def images = IMAGE_NAME.split(",")  // "frontend,backend"를 배열로 분리
+                    images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
                         // Docker 이미지 빌드
@@ -79,7 +80,8 @@ pipeline {
             steps {
                 script {
                     // 각 이미지에 대해 배포 작업 실행
-                    IMAGE_NAME.each { image ->
+                    def images = IMAGE_NAME.split(",")  // "frontend,backend"를 배열로 분리
+                    images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
                         // SSH를 통해 개발 서버에 배포 (SSH Key 기반 인증 사용)
@@ -96,4 +98,3 @@ pipeline {
         }
     }
 }
-
