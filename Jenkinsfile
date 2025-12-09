@@ -5,24 +5,24 @@ pipeline {
         // Harbor 주소 및 프로젝트 설정
         REGISTRY = 'harbor.local.net'
         PROJECT = 'charlie'
-        // [필수 수정] Groovy 환경 변수 문법 오류 수정: 배열 대신 문자열로 정의
+        // Groovy 환경 변수 문법 오류 수정: 배열 대신 문자열로 정의
         IMAGE_NAME_STRING = 'frontend,backend' 
         // Harbor에 로그인할 자격 증명 ID
         CREDENTIAL_ID = 'harbor-login'
 
-        // SonarQube URL 및 토큰 설정 (변수는 유지)
+        // SonarQube URL 및 토큰 설정
         SONARQUBE_URL = 'http://192.168.0.181:9000'
         SONARQUBE_TOKEN = 'sqa_4ca398bbb038ee6fb87aefd540c22ac980f55e8c'
         SONARQUBE = 'SonarQube'
         
-        // [추가] Calculate Version 단계에서 값을 넣을 이미지 태그 변수 선언
+        // Calculate Version 단계에서 값을 넣을 이미지 태그 변수 선언
         IMAGE_TAG = '' 
     }
 
     stages {
         stage('SCM') {
             steps {
-                // [필수 수정] SCM 체크아웃 오류 해결: 잡 설정의 Git 정보를 따르는 'checkout scm' 사용
+                // SCM 체크아웃 오류 해결: 잡 설정의 Git 정보를 따르는 'checkout scm' 사용
                 checkout scm
             }
         }
@@ -49,6 +49,8 @@ pipeline {
                     
                     env.IMAGE_TAG = "v${verCalc}"
 
+                    echo "Debug: Build Number is [ ${buildNum} ]"
+                    echo "Debug: Calculated version is [ ${verCalc} ]"
                     echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
                 }
             }
@@ -57,7 +59,7 @@ pipeline {
         stage('Build & Push') {
             steps {
                 script {
-                    // [필수 수정] 문자열을 배열로 변환하여 사용
+                    // 문자열을 배열로 변환하여 사용
                     def images = env.IMAGE_NAME_STRING.split(',')
                     
                     images.each { image ->
@@ -80,7 +82,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    // [필수 수정] 문자열을 배열로 변환하여 사용
+                    // 문자열을 배열로 변환하여 사용
                     def images = env.IMAGE_NAME_STRING.split(',')
                     
                     images.each { image ->
