@@ -2,13 +2,13 @@ pipeline {
     agent { label 'app-184' }  // 184 서버에서 빌드 작업을 실행하도록 설정
 
     environment {
-        // Harbor 주소 및 프로젝트 설정
-        REGISTRY = 'harbor.local.net'
+        // Harbor 주소 및 프로젝트 설정 (나중에 사용할 수 있도록 유지)
+        REGISTRY = 'harbor.local.net'  // Harbor 사용하지 않으면 삭제 가능
         PROJECT = 'charlie'
         // Docker 이미지 이름 (frontend, backend)
         IMAGE_NAME = 'frontend,backend'  // 배열을 문자열로 수정
-        
-        // Harbor에 로그인할 자격 증명 ID
+
+        // Harbor에 로그인할 자격 증명 ID (나중에 사용할 수 있도록 유지)
         CREDENTIAL_ID = 'harbor-login'
 
         // SonarQube URL 및 토큰 설정
@@ -20,8 +20,8 @@ pipeline {
     stages {
         stage('SCM') {
             steps {
-                // GitHub에서 소스 코드 체크아웃
-                git 'https://github.com/DZ-Chalie/jenkins.git'
+                // GitHub에서 소스 코드 체크아웃 (자격 증명 ID 'charlie' 사용)
+                git credentialsId: 'charlie', url: 'https://github.com/DZ-Chalie/jenkins.git'  // 자격 증명 ID 'charlie'로 수정
             }
         }
 
@@ -49,7 +49,7 @@ pipeline {
                         sh "docker build -t ${fullImageName} -f Dockerfile.${image} ."
 
                         // Docker 로그인 및 푸시
-                        withCredentials([usernamePassword(credentialsId: CREDENTIAL_ID, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                        withCredentials([usernamePassword(credentialsId: 'charlie', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                             sh "docker login ${REGISTRY} -u \$USER -p \$PASS"
                             sh "docker push ${fullImageName}"
                         }
