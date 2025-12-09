@@ -1,0 +1,141 @@
+.container {
+    padding: 100px 20px 40px;
+    max-width: 800px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background-color: #fcebd068;
+}
+
+.title {
+    text-align: center;
+    margin-bottom: 30px;
+    font-size: 2rem;
+    color: #333;
+}
+
+.formCard {
+    background: white;
+    padding: 40px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.formGroup {
+    margin-bottom: 25px;
+}
+
+.label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #000;
+    /* Darker black */
+}
+
+.input,
+.textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    background: #fdfdfd;
+    color: #000;
+    /* Force black text */
+}
+
+.textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.sliderGroup {
+    background: #f9f9f9;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.sliderContainer {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.sliderLabel {
+    width: 60px;
+    font-weight: bold;
+    color: #555;
+}
+
+.slider {
+    flex: 1;
+    margin: 0 15px;
+    accent-color: #333;
+}
+
+.sliderValue {
+    width: 20px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.submitButton {
+    width: 100%;
+    padding: 15px;
+    background-color: #333;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.submitButton:hover {
+    background-color: #555;
+}
+
+/* Autocomplete Styles */
+.autocompleteDropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 0 0 8px 8px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    z-index: 10;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.autocompleteItem {
+    padding: 10px 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    transition: background 0.1s;
+    color: black;
+    /* Force text color to black */
+}
+
+.autocompleteItem:hover {
+    background-color: #f7f7f7;
+}
+
+.autocompleteItem:last-child {
+    border-bottom: none;
+}
+
+/* Star Rating */
+.starRating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
