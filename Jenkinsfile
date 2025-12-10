@@ -71,19 +71,33 @@ pipeline {
             }
         }
 
-        stage('Build & Push') {
+        stage('Build, Scan & Push') {
             steps {
                 script {
-                    echo "--- 4. Build and Push to Harbor ---"
+                    echo "--- 4. Build, Scan with Trivy, and Push to Harbor ---"
                     def images = env.IMAGE_NAME_STRING.split(',')
 
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // Docker 빌드 컨텍스트 'SourceCode' 유지.
+                        // 4-1. Docker 이미지 빌드
                         sh "docker build -t ${fullImageName} -f Dockerfile.${image} SourceCode"
 
-                        // Docker 로그인 및 푸시
+                        // 4-2. 🚀 Trivy 보안 스캔 (NEW)
+                        echo "--- Trivy Security Scan for ${image} Started ---"
+                        def trivyImage = "${fullImageName}"
+                        // HIGH, CRITICAL 취약점 발견 시 Exit Code 1 반환 (파이프라인 실패 유도)
+                        def scan_command = "trivy image --severity HIGH,CRITICAL --exit-code 1 --format table ${trivyImage}"
+                        
+                        try {
+                            sh scan_command
+                            echo "✅ Trivy Scan Passed for ${image}. Continuing to push."
+                        } catch (e) {
+                            // Trivy가 Exit Code 1을 반환하면 Jenkins 빌드 실패 처리
+                            error "🚨 Trivy Scan Failed for ${image}: HIGH or CRITICAL vulnerabilities detected. Stopping pipeline."
+                        }
+                        
+                        // 4-3. Docker 로그인 및 푸시 (Trivy 스캔 통과 시에만 실행)
                         withCredentials([usernamePassword(credentialsId: CREDENTIAL_ID, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                             sh "docker login ${REGISTRY} -u \$USER -p \$PASS"
                             sh "docker push ${fullImageName}"
