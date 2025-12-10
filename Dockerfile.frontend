@@ -14,7 +14,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend . . # SourceCode/frontend 경로 명시
-COPY frontend/frontend.env .env # SourceCode/frontend 경로 명시
+COPY frontend/env_template.txt.env # SourceCode/frontend 경로 명시
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
