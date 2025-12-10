@@ -63,8 +63,9 @@ pipeline {
             steps {
                 script {
                     echo "--- Calculating Build Version ---"
-                    // 🌟 수정된 부분: Jenkins 빌드 번호를 직접 사용하여 안정적으로 버전을 설정합니다.
-                    env.IMAGE_TAG = "v1.${env.BUILD_NUMBER}"
+                    // 🌟 최종 수정: Groovy 'def' 변수에 먼저 할당하고 env에 설정하여 안정성을 높임
+                    def buildVersion = "v1.${env.BUILD_NUMBER}"
+                    env.IMAGE_TAG = buildVersion
                 }
                 echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
             }
