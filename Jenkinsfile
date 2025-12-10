@@ -62,8 +62,8 @@ pipeline {
         stage('Calculate Version') {
             steps {
                 script {
-                    // 🚨 최종 안정화 수정: sh(returnStdout: true)를 사용하여 BUILD_NUMBER 값 직접 캡처
-                    // 셸 명령어의 표준 출력(echo v1.76 등)을 Groovy 변수 BUILD_TAG에 즉시 저장합니다.
+                    // 👑 최종 해결책: sh(returnStdout: true)를 사용하여 BUILD_NUMBER 값 직접 캡처
+                    // 셸의 표준 출력을 Groovy 변수 BUILD_TAG에 즉시 저장합니다.
                     def BUILD_TAG = sh(returnStdout: true, script: "echo v1.${BUILD_NUMBER}").trim()
                     env.IMAGE_TAG = BUILD_TAG
                 }
