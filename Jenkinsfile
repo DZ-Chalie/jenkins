@@ -62,10 +62,13 @@ pipeline {
         stage('Calculate Version') {
             steps {
                 script {
-                    // 👑 최종 해결책: sh(returnStdout: true)를 사용하여 BUILD_NUMBER 값 직접 캡처
-                    // 셸의 표준 출력을 Groovy 변수 BUILD_TAG에 즉시 저장합니다.
-                    def BUILD_TAG = sh(returnStdout: true, script: "echo v1.${BUILD_NUMBER}").trim()
-                    env.IMAGE_TAG = BUILD_TAG
+                    echo "--- Calculating Build Version ---"
+                    
+                    // 🚨 최종 수정 (readFile 방식 적용): 셸 출력을 파일에 저장하여 Groovy 변수 스코프 문제를 우회합니다.
+                    sh "echo v1.${BUILD_NUMBER} > .build_version"
+
+                    // Groovy가 파일을 읽어 환경 변수에 할당합니다.
+                    env.IMAGE_TAG = readFile('.build_version').trim()
                 }
                 echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
             }
