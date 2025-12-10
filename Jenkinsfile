@@ -1,12 +1,15 @@
 pipeline {
+    // Pipeline이 실행될 Jenkins Agent 지정 (184 서버)
     agent { label 'app-184' }
 
     environment {
+        // Harbor 관련 환경 변수
         REGISTRY = 'harbor.local.net'
         PROJECT = 'charlie'
         IMAGE_NAME_STRING = 'frontend,backend'
         CREDENTIAL_ID = 'harbor-login'
 
+        // SonarQube 설정 (181 서버)
         SONARQUBE_URL = 'http://192.168.0.181:9000'
         SONARQUBE_TOKEN = 'sqa_4ca398bbb038ee6fb87aefd540c22ac980f55e8c'
         SONARQUBE = 'SonarQube'
@@ -49,6 +52,7 @@ pipeline {
             }
         }
 
+        // 4. 배포 (CD) - 184 서버 (Agent)에서 로컬로 직접 Docker 제어
         stage('Deploy') {
             steps {
                 script {
@@ -57,25 +61,21 @@ pipeline {
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // SSH를 통한 CD (181 서버에 배포)
-                        sshagent(['my-ssh-key-id']) {
-                            
-                            // 👇 배포 서버 IP를 192.168.0.184로 수정합니다. (웹 실행 공간)
-                            def deployHost = '192.168.0.184' 
-                            def deployUser = 'kevin'
+                        // ⭐ SSH 블록 (sshagent) 완전히 제거됨
+                        
+                        // 포트 충돌 방지: frontend는 8082, backend는 8081 사용
+                        def port = (image == 'frontend') ? '8082' : '8081' 
 
-                            // ⭐ 중요 수정: 포트 충돌 회피 (8080 대신 8082 사용)
-                            // 181 서버의 8080은 Jenkins가 사용 중
-                            def port = (image == 'frontend') ? '8082' : '8081' 
+                        // 기존 컨테이너 중지 및 삭제 (로컬 명령으로 실행)
+                        sh "docker stop my-${image}-server || true"
+                        sh "docker rm my-${image}-server || true"
+                        
+                        // 이미지 다운로드 (로컬에서 pull)
+                        sh "docker pull ${fullImageName}"
 
-                            // 기존 컨테이너 중지 및 삭제
-                            sh "ssh ${deployUser}@${deployHost} 'docker stop my-${image}-server || true'"
-                            sh "ssh ${deployUser}@${deployHost} 'docker rm my-${image}-server || true'"
-                            sh "ssh ${deployUser}@${deployHost} 'docker pull ${fullImageName}'"
-
-                            // 새 컨테이너 실행 (-p 8082:8080 또는 -p 8081:8080)
-                            sh "ssh ${deployUser}@${deployHost} 'docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}'"
-                        }
+                        // 새 컨테이너 실행 (로컬 명령으로 실행)
+                        sh "docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}"
+                        
                         echo "🚀 ${image} 배포 완료"
                     }
                 }
