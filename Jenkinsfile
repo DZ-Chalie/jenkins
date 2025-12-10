@@ -62,9 +62,11 @@ pipeline {
         stage('Calculate Version') {
             steps {
                 script {
-                    // ✅ 수정: env.BUILD_NUMBER를 사용하여 안정적인 버전 태그 생성
-                    env.IMAGE_TAG = "v1.${env.BUILD_NUMBER}"
-                    // ✅ 수정: echo 명령에서 변수 값을 출력하도록 수정
+                    // ✅ 수정: currentBuild.number를 직접 참조하고 문자열로 변환하여 사용
+                    def currentNumber = currentBuild.number.toString()
+                    env.IMAGE_TAG = "v1.${currentNumber}"
+                    
+                    // ✅ echo 명령 수정: 변수 값을 정확히 출력하도록 다시 확인
                     echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
                 }
             }
