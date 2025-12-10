@@ -30,7 +30,7 @@ pipeline {
             }
         }
         
-        // SonarQube 관련 스테이지 추가
+        // SonarQube 분석 스테이지
         stage('SonarQube Analysis') {
             steps {
                 script {
@@ -39,7 +39,7 @@ pipeline {
                     withEnv(['JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64']) {
                         withSonarQubeEnv(env.SONARQUBE_SERVER_ID) {
                             def scannerHome = tool 'SonarScanner'
-                            // SonarScanner 실행. 프로젝트 키와 소스 경로는 monorepo 구조에 맞게 설정됨.
+                            // SonarScanner 실행
                             sh "export JAVA_HOME=${JAVA_HOME} && ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=charlie-monorepo -Dsonar.sources=."
                         }
                     }
@@ -51,7 +51,6 @@ pipeline {
             steps {
                 script {
                     echo "--- 3. Waiting for SonarQube Quality Gate Result (Max 5 mins) ---"
-                    // Quality Gate가 Fail이면 Pipeline을 중단합니다.
                     timeout(time: 5, unit: 'MINUTES') {
                         waitForQualityGate abortPipeline: true
                     }
@@ -105,7 +104,7 @@ pipeline {
 
                         // ⭐ SSH 사용하지 않고 184 Agent 로컬에서 직접 Docker 제어
 
-                        // 컨테이너가 없을 때 오류 없이 건너뛰도록 rm -f 사용
+                        // 컨테이너 중지 및 삭제 (|| true로 컨테이너가 없어도 성공)
                         sh "docker rm -f my-${image}-server || true"
 
                         // 이미지 다운로드
