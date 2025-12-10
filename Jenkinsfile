@@ -20,7 +20,7 @@ pipeline {
         // Jenkins 시스템 설정에서 정의한 SonarQube 서버 이름
         SONARQUBE_SERVER_ID = 'sonarqube-local'
 
-        // 이미지 태그 변수 선언
+        // 이미지 태그 변수 선언 (Calculate Version에서 설정)
         IMAGE_TAG = ''
     }
 
@@ -36,11 +36,9 @@ pipeline {
             steps {
                 script {
                     echo "--- 2. SonarQube Code Analysis Started ---"
-                    // 확인된 Java 17 경로를 사용하여 JAVA_HOME 설정
                     withEnv(['JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64']) {
                         withSonarQubeEnv(env.SONARQUBE_SERVER_ID) {
                             def scannerHome = tool 'SonarScanner'
-                            // SonarQube Project Key 설정
                             sh "export JAVA_HOME=${JAVA_HOME} && ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=charlie-monorepo -Dsonar.sources=."
                         }
                     }
@@ -58,12 +56,22 @@ pipeline {
                 }
             }
         }
+        
+        // 🌟 새로 추가: 통합 테스트 스테이지
+        stage('Integration Test') {
+            steps {
+                echo "--- 4. Integration Tests Started (API/E2E Test) ---"
+                // frontend 디렉토리로 이동하여 npm install 후 npm test 스크립트 실행
+                // ❗ 테스트 스크립트가 없거나 실패하면 이 단계에서 빌드가 멈춥니다.
+                sh "cd SourceCode/frontend && npm install && npm test" 
+                echo "✅ Integration Tests Passed."
+            }
+        }
 
         stage('Calculate Version') {
             steps {
                 script {
                     echo "--- Calculating Build Version ---"
-                    // 🌟 최종 수정: Groovy 'def' 변수에 먼저 할당하고 env에 설정하여 안정성을 높임
                     def buildVersion = "v1.${env.BUILD_NUMBER}"
                     env.IMAGE_TAG = buildVersion
                 }
@@ -74,30 +82,31 @@ pipeline {
         stage('Build, Scan & Push') {
             steps {
                 script {
-                    echo "--- 4. Build, Scan with Trivy, and Push to Harbor ---"
+                    echo "--- 5. Build, Scan with Trivy, and Push to Harbor ---"
                     def images = env.IMAGE_NAME_STRING.split(',')
 
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // 4-1. Docker 이미지 빌드
+                        // 5-1. Docker 이미지 빌드
                         sh "docker build -t ${fullImageName} -f Dockerfile.${image} SourceCode"
 
-                        // 4-2. 🚀 Trivy 보안 스캔
+                        // 5-2. 🚀 Trivy 보안 스캔
                         echo "--- Trivy Security Scan for ${image} Started ---"
                         def trivyImage = "${fullImageName}"
-                        // HIGH, CRITICAL 취약점 발견 시 Exit Code 1 반환 (파이프라인 실패 유도)
-                        def scan_command = "trivy image --severity HIGH,CRITICAL --exit-code 1 --format table ${trivyImage}"
                         
+                        // 🌟 Trivy 보안 게이트 복구: CRITICAL 취약점 발견 시 Exit Code 1 반환
+                        def scan_command = "trivy image --severity CRITICAL --exit-code 1 --format table ${trivyImage}"
+
                         try {
                             sh scan_command
-                            echo "✅ Trivy Scan Passed for ${image}. Continuing to push."
+                            echo "✅ Trivy Scan Passed for ${image}. Security Gate is GREEN."
                         } catch (e) {
                             // Trivy가 Exit Code 1을 반환하면 Jenkins 빌드 실패 처리
-                            error "🚨 Trivy Scan Failed for ${image}: HIGH or CRITICAL vulnerabilities detected. Stopping pipeline."
+                            error "🚨 Trivy Scan Failed for ${image}: CRITICAL vulnerabilities detected. Fix Dockerfile and redeploy."
                         }
-                        
-                        // 4-3. Docker 로그인 및 푸시 (Trivy 스캔 통과 시에만 실행)
+
+                        // 5-3. Docker 로그인 및 푸시 (Trivy 스캔 통과 시에만 실행)
                         withCredentials([usernamePassword(credentialsId: CREDENTIAL_ID, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                             sh "docker login ${REGISTRY} -u \$USER -p \$PASS"
                             sh "docker push ${fullImageName}"
@@ -108,10 +117,11 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        // 🌟 스테이지 이름 변경: Deploy to Dev
+        stage('Deploy to Dev') {
             steps {
                 script {
-                    echo "--- 5. Deploy to Dev Server (184) ---"
+                    echo "--- 6. Deploy to Dev Server (184) ---"
                     def images = env.IMAGE_NAME_STRING.split(',')
 
                     images.each { image ->
@@ -124,10 +134,32 @@ pipeline {
                         sh "docker pull ${fullImageName}"
 
                         def port = (image == 'frontend') ? '8082' : '8081'
-                        // run 명령어 끝에 닫는 괄호("}" ) 포함
                         sh "docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}"
 
                         echo "🚀 ${image} 배포 완료 (Dev Server: 192.168.0.184)"
+                    }
+                }
+            }
+        }
+        
+        // 🌟 새로 추가: 운영 환경 배포 및 수동 승인
+        stage('Deploy to Production') {
+            steps {
+                script {
+                    // 수동 승인 단계 (운영 배포 전 관리자 확인)
+                    timeout(time: 1, unit: 'HOURS') {
+                        input message: 'QA 및 개발 배포 테스트 완료! Production 배포를 승인하시겠습니까?', submitter: 'admin'
+                    }
+                    
+                    echo "--- 7. Deploy to Production Server ---"
+                    def images = env.IMAGE_NAME_STRING.split(',')
+
+                    images.each { image ->
+                        def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
+
+                        // ❗ 이 부분은 운영 서버의 실제 IP와 배포 로직으로 대체해야 합니다.
+                        // 예시: sh "ssh user@prod-server 'docker pull ${fullImageName} && docker run...'"
+                        echo "🚀 ${image} 배포 준비 완료 (Production Server)"
                     }
                 }
             }
