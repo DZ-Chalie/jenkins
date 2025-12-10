@@ -13,11 +13,11 @@ pipeline {
         // Harbor에 로그인할 자격 증명 ID
         CREDENTIAL_ID = 'harbor-login'
 
-        // SonarQube 서버 정보 (withSonarQubeEnv에 필요한 ID 정의)
+        // SonarQube 서버 정보 
         SONARQUBE_URL = 'http://192.168.0.181:9000'
         SONARQUBE_TOKEN = 'sqa_4ca398bbb038ee6fb87aefd540c22ac980f55e8c'
         
-        // 🚨 Jenkins 시스템 설정에서 정의한 SonarQube 서버 이름
+        // Jenkins 시스템 설정에서 정의한 SonarQube 서버 이름
         SONARQUBE_SERVER_ID = 'sonarqube-local' 
 
         // 이미지 태그 변수 선언
@@ -28,7 +28,6 @@ pipeline {
         stage('SCM') {
             steps {
                 echo "--- 1. Git Repository Checkout ---"
-                // 잡 설정의 Git 정보를 따르는 'checkout scm' 사용
                 checkout scm
             }
         }
@@ -37,10 +36,13 @@ pipeline {
             steps {
                 script {
                     echo "--- 2. SonarQube Code Analysis Started ---"
-                    // Jenkins 시스템 설정에서 정의한 SonarQube 서버 이름 사용
-                    withSonarQubeEnv(env.SONARQUBE_SERVER_ID) { 
-                        // 🚨 'SonarScanner' 사용 (고객님의 설정에 맞춰 수정)
-                        sh "${tool 'SonarScanner'} -Dsonar.projectKey=charlie-monorepo -Dsonar.sources=."
+                    // 🚨 확인된 Java 17 경로를 사용하여 JAVA_HOME 설정
+                    withEnv(['JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64']) { 
+                        withSonarQubeEnv(env.SONARQUBE_SERVER_ID) {
+                            def scannerHome = tool 'SonarScanner'
+                            // JAVA_HOME을 환경 변수로 전달하고 SonarScanner를 실행
+                            sh "export JAVA_HOME=${JAVA_HOME} && ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=charlie-monorepo -Dsonar.sources=."
+                        }
                     }
                 }
             }
@@ -51,7 +53,6 @@ pipeline {
                 script {
                     echo "--- 3. Waiting for SonarQube Quality Gate Result (Max 5 mins) ---"
                     timeout(time: 5, unit: 'MINUTES') {
-                        // quality gate 결과가 'OK'가 아닐 경우 파이프라인 중단
                         waitForQualityGate abortPipeline: true
                     }
                 }
@@ -62,9 +63,7 @@ pipeline {
             steps {
                 script {
                     def buildNum = currentBuild.number.toInteger()
-                    // 버전 계산 수정 (v1. 빌드번호)
                     env.IMAGE_TAG = "v1.${buildNum}" 
-                    
                     echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
                 }
             }
@@ -79,8 +78,9 @@ pipeline {
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // Docker 이미지 빌드
-                        sh "docker build -t ${fullImageName} -f Dockerfile.${image} ."
+                        // Docker 이미지 빌드 
+                        // WARN: 이전 로그에서 'SourceCode'가 인자로 들어갔는데, 여기서는 '.'으로 수정되어 있어 혹시 모르니 '.' 유지
+                        sh "docker build -t ${fullImageName} -f Dockerfile.${image} ." 
 
                         // Docker 로그인 및 푸시
                         withCredentials([usernamePassword(credentialsId: CREDENTIAL_ID, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
@@ -107,7 +107,9 @@ pipeline {
                             
                         // Docker 이미지를 개발 서버에서 풀하고 실행 (184 서버 로컬에서 실행)
                         sh "docker pull ${fullImageName}"
-                        sh "docker run -d -p 8080:80 --name my-${image}-server ${fullImageName}"
+                        
+                        def port = (image == 'frontend') ? '8082' : '8081' 
+                        sh "docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}"
                         
                         echo "🚀 ${image} 배포 완료 (Dev Server: 192.168.0.184)"
                     }
