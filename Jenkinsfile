@@ -62,10 +62,14 @@ pipeline {
         stage('Calculate Version') {
             steps {
                 script {
-                    // 🚨 최종 수정: 중간 변수 제거 후 env.BUILD_NUMBER를 env.IMAGE_TAG에 직접 대입 (가장 안정적)
-                    env.IMAGE_TAG = "v1.${env.BUILD_NUMBER}"
-                    echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
+                    // 🚨 최종 안정화 수정: Groovy 직접 접근이 아닌, Shell을 통한 BUILD_NUMBER 캡처 및 주입
+                    // 1. 셸 환경(가장 안정적인 환경)에서 BUILD_NUMBER를 읽어 파일에 저장합니다.
+                    sh 'echo "v1.${BUILD_NUMBER}" > .build_version'
+                    
+                    // 2. Groovy가 파일 내용을 읽어와 Jenkins 전역 변수 env.IMAGE_TAG에 할당합니다.
+                    env.IMAGE_TAG = readFile('.build_version').trim()
                 }
+                echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
             }
         }
 
