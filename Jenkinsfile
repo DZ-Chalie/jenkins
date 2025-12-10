@@ -56,14 +56,14 @@ pipeline {
                 }
             }
         }
-        
+
         // 🌟 새로 추가: 통합 테스트 스테이지
         stage('Integration Test') {
             steps {
                 echo "--- 4. Integration Tests Started (API/E2E Test) ---"
                 // frontend 디렉토리로 이동하여 npm install 후 npm test 스크립트 실행
-                // ❗ 테스트 스크립트가 없거나 실패하면 이 단계에서 빌드가 멈춥니다.
-                sh "cd SourceCode/frontend && npm install && npm test" 
+                // ❗ package.json에 test 스크립트 추가 필요 (이미 Git에 커밋함)
+                sh "cd SourceCode/frontend && npm install && npm test"
                 echo "✅ Integration Tests Passed."
             }
         }
@@ -72,8 +72,11 @@ pipeline {
             steps {
                 script {
                     echo "--- Calculating Build Version ---"
-                    def buildVersion = "v1.${env.BUILD_NUMBER}"
-                    env.IMAGE_TAG = buildVersion
+                    // 🚨 최종 수정 (readFile 방식 적용): 셸 출력을 파일에 저장하여 Groovy 변수 스코프 문제를 우회합니다.
+                    sh "echo v1.${BUILD_NUMBER} > .build_version"
+
+                    // Groovy가 파일을 읽어 환경 변수에 할당합니다.
+                    env.IMAGE_TAG = readFile('.build_version').trim()
                 }
                 echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
             }
@@ -94,7 +97,7 @@ pipeline {
                         // 5-2. 🚀 Trivy 보안 스캔
                         echo "--- Trivy Security Scan for ${image} Started ---"
                         def trivyImage = "${fullImageName}"
-                        
+
                         // 🌟 Trivy 보안 게이트 복구: CRITICAL 취약점 발견 시 Exit Code 1 반환
                         def scan_command = "trivy image --severity CRITICAL --exit-code 1 --format table ${trivyImage}"
 
@@ -141,7 +144,7 @@ pipeline {
                 }
             }
         }
-        
+
         // 🌟 새로 추가: 운영 환경 배포 및 수동 승인
         stage('Deploy to Production') {
             steps {
@@ -150,7 +153,7 @@ pipeline {
                     timeout(time: 1, unit: 'HOURS') {
                         input message: 'QA 및 개발 배포 테스트 완료! Production 배포를 승인하시겠습니까?', submitter: 'admin'
                     }
-                    
+
                     echo "--- 7. Deploy to Production Server ---"
                     def images = env.IMAGE_NAME_STRING.split(',')
 
