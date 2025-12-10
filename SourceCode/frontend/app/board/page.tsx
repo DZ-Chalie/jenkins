@@ -14,6 +14,8 @@ interface FlavorProfile {
     throat: number;
 }
 
+
+
 interface TastingNote {
     _id: string;
     liquor_id: number;
