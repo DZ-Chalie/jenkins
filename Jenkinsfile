@@ -62,12 +62,10 @@ pipeline {
         stage('Calculate Version') {
             steps {
                 script {
-                    // 🚨 최종 안정화 수정: 셸(Shell)을 통한 BUILD_NUMBER 캡처 및 주입 (null 오류 방지)
-                    // 1. 셸 환경에서 Jenkins 빌드 번호(BUILD_NUMBER)를 읽어 임시 파일에 저장합니다.
-                    sh 'echo "v1.${BUILD_NUMBER}" > .build_version'
-
-                    // 2. Groovy에서 임시 파일 내용을 읽어와 Jenkins 전역 변수에 할당합니다.
-                    env.IMAGE_TAG = readFile('.build_version').trim()
+                    // 🚨 최종 안정화 수정: sh(returnStdout: true)를 사용하여 BUILD_NUMBER 값 직접 캡처
+                    // 셸 명령어의 표준 출력(echo v1.76 등)을 Groovy 변수 BUILD_TAG에 즉시 저장합니다.
+                    def BUILD_TAG = sh(returnStdout: true, script: "echo v1.${BUILD_NUMBER}").trim()
+                    env.IMAGE_TAG = BUILD_TAG
                 }
                 echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
             }
