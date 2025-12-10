@@ -40,7 +40,7 @@ pipeline {
                     withEnv(['JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64']) {
                         withSonarQubeEnv(env.SONARQUBE_SERVER_ID) {
                             def scannerHome = tool 'SonarScanner'
-                            // 🛠️ 수정: -Dsonar.projectKey=charlie-monorepo 로 키(Key) 명시
+                            // SonarQube Project Key 설정
                             sh "export JAVA_HOME=${JAVA_HOME} && ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=charlie-monorepo -Dsonar.sources=."
                         }
                     }
@@ -62,9 +62,8 @@ pipeline {
         stage('Calculate Version') {
             steps {
                 script {
-                    // 🌟 최종 수정: currentBuild.number 대신 env.BUILD_NUMBER 표준 변수 사용
-                    def buildNum = env.BUILD_NUMBER
-                    env.IMAGE_TAG = "v1.${buildNum}"
+                    // 🚨 최종 수정: 중간 변수 제거 후 env.BUILD_NUMBER를 env.IMAGE_TAG에 직접 대입 (가장 안정적)
+                    env.IMAGE_TAG = "v1.${env.BUILD_NUMBER}"
                     echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
                 }
             }
@@ -79,10 +78,10 @@ pipeline {
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // 🛠️ 수정: Docker 빌드 컨텍스트 'SourceCode' 유지.
+                        // Docker 빌드 컨텍스트 'SourceCode' 유지.
                         sh "docker build -t ${fullImageName} -f Dockerfile.${image} SourceCode"
 
-                        // Docker 로그인 및 푸시 (🛠️ 수정: usernameVariable 변수명 누락 수정)
+                        // Docker 로그인 및 푸시
                         withCredentials([usernamePassword(credentialsId: CREDENTIAL_ID, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                             sh "docker login ${REGISTRY} -u \$USER -p \$PASS"
                             sh "docker push ${fullImageName}"
@@ -109,7 +108,7 @@ pipeline {
                         sh "docker pull ${fullImageName}"
 
                         def port = (image == 'frontend') ? '8082' : '8081'
-                        // 🛠️ 수정: run 명령어 끝에 닫는 괄호(}" 추가
+                        // run 명령어 끝에 닫는 괄호("}" ) 포함
                         sh "docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}"
 
                         echo "🚀 ${image} 배포 완료 (Dev Server: 192.168.0.184)"
