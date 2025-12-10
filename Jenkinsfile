@@ -63,12 +63,8 @@ pipeline {
             steps {
                 script {
                     echo "--- Calculating Build Version ---"
-                    
-                    // 🚨 최종 수정 (readFile 방식 적용): 셸 출력을 파일에 저장하여 Groovy 변수 스코프 문제를 우회합니다.
-                    sh "echo v1.${BUILD_NUMBER} > .build_version"
-
-                    // Groovy가 파일을 읽어 환경 변수에 할당합니다.
-                    env.IMAGE_TAG = readFile('.build_version').trim()
+                    // 🌟 수정된 부분: Jenkins 빌드 번호를 직접 사용하여 안정적으로 버전을 설정합니다.
+                    env.IMAGE_TAG = "v1.${env.BUILD_NUMBER}"
                 }
                 echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
             }
@@ -86,7 +82,7 @@ pipeline {
                         // 4-1. Docker 이미지 빌드
                         sh "docker build -t ${fullImageName} -f Dockerfile.${image} SourceCode"
 
-                        // 4-2. 🚀 Trivy 보안 스캔 (NEW)
+                        // 4-2. 🚀 Trivy 보안 스캔
                         echo "--- Trivy Security Scan for ${image} Started ---"
                         def trivyImage = "${fullImageName}"
                         // HIGH, CRITICAL 취약점 발견 시 Exit Code 1 반환 (파이프라인 실패 유도)
