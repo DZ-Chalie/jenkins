@@ -1,5 +1,5 @@
 pipeline {
-    // 빌드 에이전트 설정 (184 서버)
+    // Pipeline이 실행될 Jenkins Agent 지정 (184 서버)
     agent { label 'app-184' }
 
     environment {
@@ -13,12 +13,10 @@ pipeline {
         // Harbor에 로그인할 자격 증명 ID
         CREDENTIAL_ID = 'harbor-login'
 
-        // SonarQube 서버 정보
+        // SonarQube 서버 정보 (181 서버)
         SONARQUBE_URL = 'http://192.168.0.181:9000'
         SONARQUBE_TOKEN = 'sqa_4ca398bbb038ee6fb87aefd540c22ac980f55e8c'
-
-        // Jenkins 시스템 설정에서 정의한 SonarQube 서버 이름
-        SONARQUBE_SERVER_ID = 'sonarqube-local'
+        SONARQUBE_SERVER_ID = 'sonarqube-local' // Jenkins 설정에 정의된 SonarQube 서버 이름
 
         // 이미지 태그 변수 선언
         IMAGE_TAG = ''
@@ -31,16 +29,17 @@ pipeline {
                 checkout scm
             }
         }
-
+        
+        // SonarQube 관련 스테이지 추가
         stage('SonarQube Analysis') {
             steps {
                 script {
                     echo "--- 2. SonarQube Code Analysis Started ---"
-                    // 확인된 Java 17 경로를 사용하여 JAVA_HOME 설정
+                    // Jenkins Agent에 Java 17 경로를 설정하여 SonarScanner 실행 준비
                     withEnv(['JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64']) {
                         withSonarQubeEnv(env.SONARQUBE_SERVER_ID) {
                             def scannerHome = tool 'SonarScanner'
-                            // SonarQube Project Key 설정
+                            // SonarScanner 실행. 프로젝트 키와 소스 경로는 monorepo 구조에 맞게 설정됨.
                             sh "export JAVA_HOME=${JAVA_HOME} && ${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=charlie-monorepo -Dsonar.sources=."
                         }
                     }
@@ -52,6 +51,7 @@ pipeline {
             steps {
                 script {
                     echo "--- 3. Waiting for SonarQube Quality Gate Result (Max 5 mins) ---"
+                    // Quality Gate가 Fail이면 Pipeline을 중단합니다.
                     timeout(time: 5, unit: 'MINUTES') {
                         waitForQualityGate abortPipeline: true
                     }
@@ -59,11 +59,13 @@ pipeline {
             }
         }
 
+        // 이미지 버전 계산 및 설정 (빌드 번호 기반)
         stage('Calculate Version') {
             steps {
                 script {
-                    // 🚨 최종 수정: 중간 변수 제거 후 env.BUILD_NUMBER를 env.IMAGE_TAG에 직접 대입 (가장 안정적)
+                    // ✅ 수정: env.BUILD_NUMBER를 사용하여 안정적인 버전 태그 생성
                     env.IMAGE_TAG = "v1.${env.BUILD_NUMBER}"
+                    // ✅ 수정: echo 명령에서 변수 값을 출력하도록 수정
                     echo "🎉 이번 빌드 버전은 [ ${env.IMAGE_TAG} ] 입니다."
                 }
             }
@@ -78,7 +80,7 @@ pipeline {
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // Docker 빌드 컨텍스트 'SourceCode' 유지.
+                        // Docker 빌드 (빌드 컨텍스트: SourceCode)
                         sh "docker build -t ${fullImageName} -f Dockerfile.${image} SourceCode"
 
                         // Docker 로그인 및 푸시
@@ -101,17 +103,21 @@ pipeline {
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // 기존 컨테이너 중지 및 삭제 (재배포 시 필수)
+                        // ⭐ SSH 사용하지 않고 184 Agent 로컬에서 직접 Docker 제어
+
+                        // 컨테이너가 없을 때 오류 없이 건너뛰도록 rm -f 사용
                         sh "docker rm -f my-${image}-server || true"
 
-                        // Docker 이미지를 개발 서버에서 풀하고 실행 (184 서버 로컬에서 실행)
+                        // 이미지 다운로드
                         sh "docker pull ${fullImageName}"
 
+                        // 포트 설정: 8080은 Jenkins가 사용하므로 frontend는 8082로 설정
                         def port = (image == 'frontend') ? '8082' : '8081'
-                        // run 명령어 끝에 닫는 괄호("}" ) 포함
+
+                        // 새 컨테이너 실행
                         sh "docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}"
 
-                        echo "🚀 ${image} 배포 완료 (Dev Server: 192.168.0.184)"
+                        echo "🚀 ${image} 배포 완료 (Dev Server: 192.168.0.184:${port})"
                     }
                 }
             }
