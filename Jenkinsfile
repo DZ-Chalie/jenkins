@@ -61,18 +61,18 @@ pipeline {
                     images.each { image ->
                         def fullImageName = "${REGISTRY}/${PROJECT}/${image}:${env.IMAGE_TAG}"
 
-                        // SSH를 통한 CD (184 서버에 배포)
+                        // SSH를 통한 CD (181 서버에 배포)
                         sshagent(['my-ssh-key-id']) {
                             // 기존 컨테이너 중지 및 삭제 후 새로운 이미지로 재시작
-                            sh "ssh user@192.168.0.184 'docker stop my-${image}-server || true'"
-                            sh "ssh user@192.168.0.184 'docker rm my-${image}-server || true'"
-                            sh "ssh user@192.168.0.184 'docker pull ${fullImageName}'"
+                            sh "ssh kevin@192.168.0.181 'docker stop my-${image}-server || true'"
+                            sh "ssh kevin@192.168.0.181 'docker rm my-${image}-server || true'"
+                            sh "ssh kevin@192.168.0.181 'docker pull ${fullImageName}'"
 
                             // 프론트엔드는 8080, 백엔드는 8081 포트로 분리하여 포트 충돌 방지
                             def port = (image == 'frontend') ? '8080' : '8081'
 
                             // ⭐ 수정 2: 배포 시 포트 바인딩 로직 변경 (Deploy 단계는 수정 사항 없음, 확인용)
-                            sh "ssh user@192.168.0.184 'docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}'"
+                            sh "ssh kevin@192.168.0.181 'docker run -d -p ${port}:8080 --name my-${image}-server ${fullImageName}'"
                         }
                         echo "🚀 ${image} 배포 완료"
                     }
