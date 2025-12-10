@@ -1,13 +1,12 @@
-# /home/kevin/test/workspace/sample/Dockerfile.backend 내용 (복사하여 저장)
 FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY backend/requirements.txt . # SourceCode/backend 경로 명시
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir six && pip install --no-cache-dir -r requirements.txt
 
-COPY backend . . # SourceCode/backend 경로 명시
+COPY backend . .
 
-EXPOSE 8000 # 원본 포트 8000 사용
+EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] # 원본 포트 8000 사용
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
