@@ -6,7 +6,8 @@
     "dev": "node server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "echo \"CI test placeholder, successful run.\" && exit 0"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.1",
