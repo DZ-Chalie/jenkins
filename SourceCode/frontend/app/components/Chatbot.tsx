@@ -269,26 +269,23 @@ export default function Chatbot() {
                                 </div>
                             )}
                     </div>
-                </Rnd >
-            )
-            }
+                </Rnd>
+            )} {/* <-- 272~274행 수정: 여기서 중괄호를 닫습니다 */}
 
-            {
-                !isOpen && (
-                    <div className={styles.container}>
-                        <button className={styles.button} onClick={toggleChat}>
-                            <Image
-                                src="/이리오너라.png"
-                                alt="이리오너라"
-                                width={36}
-                                height={36}
-                                style={{ borderRadius: '50%' }}
-                            />
-                            <span>이리오너라~</span>
-                        </button>
-                    </div>
-                )
-            }
+            {!isOpen && (
+                <div className={styles.container}>
+                    <button className={styles.button} onClick={toggleChat}>
+                        <Image
+                            src="/이리오너라.png"
+                            alt="이리오너라"
+                            width={36}
+                            height={36}
+                            style={{ borderRadius: '50%' }}
+                        />
+                        <span>이리오너라~</span>
+                    </button>
+                </div>
+            )}
         </>
     );
 }
