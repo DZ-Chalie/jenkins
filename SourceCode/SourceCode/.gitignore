@@ -1,0 +1,11 @@
+node_modules/
+backend/backend.env
+frontend/frontend.env
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.venv
+venv/
+bin/
+obj/

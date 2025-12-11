@@ -1,0 +1,443 @@
+.container {
+  height: 100vh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  position: relative;
+}
+
+.section {
+  width: 100%;
+  height: 100vh;
+  /* Fixed height for clean snap */
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  /* Force stop at snap points */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+  /* Remove padding to ensure exact fit */
+  overflow: hidden;
+  /* Hide overflow by default, enable specific scroll if needed */
+}
+
+/* Background */
+.background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Hero Section (Map + List) */
+.heroContent {
+  display: flex;
+  flex-wrap: nowrap;
+  width: 98%;
+  height: 100%;
+  /* Fill the section */
+  max-width: none;
+  gap: 1rem;
+  z-index: 1;
+  padding-top: 80px;
+  /* Match header height exactly */
+  padding-bottom: 1rem;
+  /* Reduced for tighter fit */
+  align-items: flex-start;
+  justify-content: center;
+  overflow: hidden;
+  /* Prevent section expansion */
+}
+
+.mapContainer {
+  flex: 0 0 auto;
+  height: 100%;
+  /* Fill available height */
+  background: transparent;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mapSection {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 500px;
+  max-height: 100%;
+  /* Constrain height */
+  align-items: flex-start;
+}
+
+.contentPanels {
+  flex: 2 1 450px;
+  height: 100%;
+  /* Fill available height */
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  /* Stack from top */
+  overflow-y: auto;
+  /* Enable internal scrolling for right panel if needed */
+  padding-right: 10px;
+  /* Space for scrollbar */
+  padding-top: 10px;
+  /* Reduced for tighter fit */
+}
+
+.sideDishPanel {
+  flex: 1 1 200px;
+  min-width: 200px;
+  background: url('/한지.jpg') repeat;
+  background-size: cover;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #d7ccc8;
+  overflow-y: auto;
+  /* Internal scroll */
+}
+
+/* Sticky Positioning Removed */
+
+.sectionTitle {
+  font-size: 1.4rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.sectionSubtitle {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 1.5rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.mapWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.listContainer {
+  flex: 1 1 300px;
+  min-width: 220px;
+  max-width: 100%;
+  background: url('/한지.jpg') repeat;
+  background-size: cover;
+  border: 1px solid #d7ccc8;
+  border-radius: 20px;
+  padding: 1rem;
+  /* Reduced from 1.5rem */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  /* Height auto for full page scroll */
+  height: auto;
+  min-height: 700px;
+  /* Reduced from 800px */
+}
+
+.listContainer .sectionTitle {
+  color: #4e342e;
+  text-shadow: none;
+  font-weight: 800;
+}
+
+.liquorList {
+  flex: 1;
+  /* overflow-y: auto; Removed for page scroll */
+  padding-right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  /* Reduced from 1rem */
+}
+
+.seasonTabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  overflow-x: auto;
+  padding-bottom: 5px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.seasonChip {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid #d7ccc8;
+  background: rgba(255, 255, 255, 0.6);
+  color: #5d4037;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.seasonChip.active {
+  background: #8d6e63;
+  color: white;
+  border-color: #8d6e63;
+  font-weight: bold;
+}
+
+.seasonChip:hover {
+  background: #efebe9;
+}
+
+.sortButtons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.sortButtons button {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #8b4513;
+  background: rgba(255, 255, 255, 0.7);
+  color: #5d4037;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.sortButtons button:hover {
+  background: #efebe9;
+}
+
+.activeSortBtn {
+  background: #8b4513 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+.liquorCard {
+  display: flex;
+  background: url('/한지.jpg') repeat;
+  background-size: cover;
+  border-radius: 8px;
+  padding: 0.8rem;
+  padding-right: 90px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid rgba(141, 110, 99, 0.2);
+  cursor: pointer;
+  align-items: center;
+  position: relative;
+}
+
+.liquorCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.liquorImagePlaceholder {
+  width: 60px;
+  /* Reduced size */
+  height: 60px;
+  background: #f0f0f0;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  margin-right: 0.8rem;
+  /* Reduced margin */
+  flex-shrink: 0;
+}
+
+.liquorInfo h3 {
+  margin: 0 0 0.2rem 0;
+  /* Tighter margin */
+  font-size: 1rem;
+  /* Smaller font */
+  color: #333;
+}
+
+.liquorInfo p {
+  margin: 0;
+  font-size: 0.85rem;
+  /* Smaller font */
+  color: #666;
+}
+
+/* Pagination Styles */
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.pageButton {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid #d7ccc8;
+  color: #5d4037;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.pageButton:hover {
+  background: #efebe9;
+}
+
+.pageButton.activePage {
+  background: #8d6e63;
+  color: white;
+  border-color: #8d6e63;
+  font-weight: bold;
+}
+
+.emptyMessage,
+.instructionMessage {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.scrollIndicator {
+  position: absolute;
+  bottom: 2rem;
+  color: white;
+  text-align: center;
+  animation: bounce 2s infinite;
+  z-index: 1;
+}
+
+.arrow {
+  font-size: 2rem;
+  margin-top: 0.5rem;
+}
+
+@keyframes bounce {
+
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-10px);
+  }
+
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Gallery Section */
+.galleryContainer {
+  width: 100%;
+  padding: 2rem;
+  background: url('/한지.jpg') repeat;
+  background-size: cover;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.galleryContainer h2 {
+  text-align: center;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+}
+
+.horizontalScroll {
+  display: flex;
+  overflow-x: auto;
+  gap: 2rem;
+  padding: 1rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.galleryItem {
+  flex: 0 0 300px;
+  height: 400px;
+  scroll-snap-align: center;
+  background: #f0f0f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s;
+}
+
+.galleryItem:hover {
+  transform: translateY(-10px);
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #999;
+}
+
+/* Detail Button and Selected Card Styles */
+.detailButton {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 12px;
+  background: #8d6e63;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.detailButton:hover {
+  background: #6d4c41;
+}
+
+.selectedCard {
+  border: 2px solid #8d6e63 !important;
+  box-shadow: 0 4px 12px rgba(141, 110, 99, 0.3) !important;
+}

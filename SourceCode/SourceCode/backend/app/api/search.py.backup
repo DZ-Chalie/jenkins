@@ -1,0 +1,448 @@
+
+from fastapi import APIRouter, HTTPException
+from app.utils.es_client import get_es_client
+from app.db.mariadb import get_liquor_details
+from pydantic import BaseModel
+from typing import Optional
+
+class SearchRequest(BaseModel):
+    query: str
+
+router = APIRouter()
+
+def search_liquor_fuzzy(text: str):
+    es = get_es_client()
+    if not es:
+        print("❌ Elasticsearch client not available")
+        return None
+
+    # Search query: Match 'drink_name' in 'drink_info' index
+    index_name = "drink_info"
+    
+    query = {
+        "query": {
+            "bool": {
+                "should": [
+                    {
+                        "match": {
+                            "drink_name": {
+                                "query": text,
+                                "fuzziness": "AUTO",
+                                "boost": 1.0, # Lower boost for standard match
+                                "operator": "and" # Require all tokens to match (prevents "지" matching "가와지탁주")
+                            }
+                        }
+                    },
+                    {
+                        "match": {
+                            "drink_name.ngram": { 
+                                "query": text,
+                                "fuzziness": "AUTO",
+                                "boost": 10.0 # High boost for ngram (handles typos like "지란지고" -> "지란지교")
+                            }
+                        }
+                    }
+                ],
+                "minimum_should_match": 1
+            }
+        },
+        "min_score": 1.0, # Filter out low relevance matches
+        "size": 10
+    }
+
+    try:
+        response = es.search(index=index_name, body=query)
+        hits = response['hits']['hits']
+        
+        if hits:
+            best_match = hits[0]['_source']
+            score = hits[0]['_score']
+            
+            print(f"✅ ES Match Found: '{best_match.get('drink_name')}' (Score: {score})")
+            
+            # Transform ES data to Frontend 'SearchResult' interface
+            source = best_match
+            
+            # Type mapping (approximate based on common IDs)
+            type_map = {
+                1: "과실주", 2: "리큐르/기타주류", 3: "약주,청주", 4: "증류주", 
+                5: "탁주(고도0)", 6: "탁주(저도)", 7: "기타"
+            }
+            type_id = source.get('type_id')
+            drink_type = type_map.get(type_id, "전통주") if type_id else "전통주"
+
+            # Format ABV
+            abv = source.get('drink_abv')
+            if abv:
+                try:
+                    abv_float = float(abv)
+                    if abv_float < 1.0:
+                        abv = f"{int(abv_float * 100)}%"
+                    else:
+                        abv = f"{abv}%"
+                except ValueError:
+                    abv = f"{abv}%"
+
+            result = {
+                "name": source.get('drink_name'),
+                "description": source.get('drink_intro'),
+                "intro": source.get('drink_intro'), # Frontend uses intro or description
+                "image_url": source.get('drink_image_url'),
+                "url": source.get('drink_url'),
+                "tags": [], # ES doesn't have tags yet
+                "score": score,
+                "detail": {
+                    "알콜도수": abv,
+                    "용량": source.get('drink_volume'),
+                    "종류": drink_type,
+                    "원재료": source.get('drink_origin'), # Mapped from DB 'drink_origin' which holds ingredients
+                    "수상내역": source.get('drink_awards')
+                },
+                "brewery": {
+                    "name": None, # Brewery name not in CSV directly (only ID)
+                    "address": source.get('drink_city'),
+                    "homepage": None,
+                    "contact": None
+                },
+                "pairing_food": source.get('pairing_foods', []), # From DB
+                "cocktails": source.get('cocktails', []), 
+                "selling_shops": source.get('selling_shops', []), 
+                "encyclopedia": source.get('encyclopedia', []),
+                "candidates": [
+                    {
+                        "name": hit['_source']['drink_name'],
+                        "score": hit['_score'],
+                        "image_url": hit['_source'].get('image_url', ''),
+                        "id": hit['_source'].get('drink_id')
+                    }
+                    for hit in response['hits']['hits'][:5] # Return top 5 candidates
+                ]
+            }
+            
+            return result
+        
+        print(f"❌ No ES match found for '{text}'")
+        return None
+
+    except Exception as e:
+        print(f"❌ Search error: {e}")
+        return None
+
+class SearchRequest(BaseModel):
+    query: str
+
+@router.post("")
+async def search_endpoint(request: SearchRequest):
+    result = search_liquor_fuzzy(request.query)
+    if not result:
+        raise HTTPException(status_code=404, detail="Liquor not found")
+    return result
+
+@router.get("/region")
+async def search_by_region(province: str, city: Optional[str] = None, size: int = 1000):
+    """
+    Search drinks by region using Elasticsearch for high performance.
+    """
+    es = get_es_client()
+    if not es:
+        # Fallback to DB if ES is down (optional, but good for reliability)
+        print("⚠️ ES unavailable, falling back to DB...")
+        # ... (We could keep the DB logic here as fallback, but for now let's rely on ES as requested)
+        raise HTTPException(status_code=500, detail="Search Engine Error")
+
+    # Build ES Query
+    must_conditions = [
+        {"match": {"province": province}}
+    ]
+    
+    if city:
+        must_conditions.append({"match": {"city": city}})
+
+    query = {
+        "query": {
+            "bool": {
+                "must": must_conditions
+            }
+        },
+        "sort": [
+            {"lowest_price": {"order": "asc", "missing": "_last"}} # Sort by price, put missing prices last
+        ],
+        "size": size
+    }
+    
+    try:
+        response = es.search(index="drink_info", body=query)
+        hits = response['hits']['hits']
+        
+        results = []
+        for hit in hits:
+            source = hit['_source']
+            
+            # Format ABV if needed
+            abv = source.get('drink_abv')
+            if abv:
+                 try:
+                    abv_float = float(abv)
+                    if abv_float < 1.0:
+                        abv = f"{int(abv_float * 100)}%"
+                    else:
+                        abv = f"{abv}%"
+                 except:
+                     abv = f"{abv}%"
+
+            results.append({
+                "id": source.get('drink_id'),
+                "name": source.get('drink_name'),
+                "image_url": source.get('drink_image_url'),
+                "type": "전통주", # Type mapping might be needed if stored as ID
+                "alcohol": abv,
+                "price": source.get('lowest_price', 0),
+                "volume": source.get('drink_volume'),
+                "province": source.get('province'),
+                "city": source.get('city')
+            })
+            
+        # If no results in ES, maybe data isn't synced? 
+        # We could trigger a background sync or just return empty.
+        if not results:
+            print(f"⚠️ No results in ES for {province} {city}")
+            
+        return results
+
+    except Exception as e:
+        print(f"❌ ES Region Search Error: {e}")
+        return []
+
+@router.get("/detail/{drink_id}")
+async def get_drink_detail(drink_id: int):
+    """
+    Get detailed information for a specific drink by ID.
+    """
+    es = get_es_client()
+    if not es:
+        raise HTTPException(status_code=500, detail="Search Engine Error")
+
+    try:
+        # Search by drink_id
+        query = {
+            "query": {
+                "term": {
+                    "drink_id": drink_id
+                }
+            }
+        }
+        
+        response = es.search(index="drink_info", body=query)
+        hits = response['hits']['hits']
+        
+        if not hits:
+            raise HTTPException(status_code=404, detail="Drink not found")
+            
+        source = hits[0]['_source']
+        
+        # Type mapping
+        type_map = {
+            1: "과실주", 2: "리큐르/기타주류", 3: "약주,청주", 4: "증류주", 
+            5: "탁주(고도0)", 6: "탁주(저도)", 7: "기타"
+        }
+        type_id = source.get('type_id')
+        drink_type = type_map.get(type_id, "전통주") if type_id else "전통주"
+
+        # Format ABV
+        abv = source.get('drink_abv')
+        if abv:
+             try:
+                abv_float = float(abv)
+                if abv_float < 1.0:
+                    abv = f"{int(abv_float * 100)}%"
+                else:
+                    abv = f"{abv}%"
+             except:
+                 abv = f"{abv}%"
+
+        return {
+            "id": source.get('drink_id'),
+            "name": source.get('drink_name'),
+            "description": source.get('drink_intro') or source.get('drink_desc', ''),
+            "intro": source.get('drink_intro'),
+            "image_url": source.get('drink_image_url'),
+            "abv": abv,
+            "volume": source.get('drink_volume'),
+            "type": drink_type,
+            "foods": source.get('pairing_foods', []),
+            "cocktails": source.get('cocktails', []),
+            "encyclopedia": source.get('encyclopedia', []),
+            "selling_shops": source.get('selling_shops', []),
+            "brewery": source.get('brewery', {}),
+            "detail": {
+                "알콜도수": abv,
+                "용량": source.get('drink_volume'),
+                "종류": drink_type,
+                "원재료": source.get('drink_origin'),
+                "수상내역": source.get('drink_awards')
+            }
+        }
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"❌ Detail Search Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+class SimilarSearchRequest(BaseModel):
+    name: str
+    exclude_id: Optional[int] = None
+
+def search_similar_drinks(name: str, exclude_id: Optional[int] = None):
+    es = get_es_client()
+    if not es:
+        return []
+
+    index_name = "drink_info"
+    
+    # Fuzzy search query
+    query = {
+        "query": {
+            "bool": {
+                "must": [
+                    {
+                        "match": {
+                            "drink_name": {
+                                "query": name,
+                                "fuzziness": "AUTO",
+                                "operator": "or" # Allow partial matches for similarity
+                            }
+                        }
+                    }
+                ],
+                "must_not": []
+            }
+        },
+        "size": 6 # Fetch a few to filter
+    }
+    
+    if exclude_id is not None:
+        query["query"]["bool"]["must_not"].append({
+            "term": {"drink_id": exclude_id}
+        })
+
+    try:
+        response = es.search(index=index_name, body=query)
+        hits = response['hits']['hits']
+        
+        results = []
+        for hit in hits:
+            source = hit['_source']
+            results.append({
+                "id": source.get('drink_id'),
+                "name": source.get('drink_name'),
+                "image_url": source.get('drink_image_url'),
+                "score": hit['_score']
+            })
+            
+        return results
+
+    except Exception as e:
+        print(f"❌ Similar Search Error: {e}")
+        return []
+
+@router.post("/similar")
+async def search_similar_endpoint(request: SimilarSearchRequest):
+    return search_similar_drinks(request.name, request.exclude_id)
+
+@router.get("/list")
+async def get_drink_list(page: int = 1, size: int = 10, query: Optional[str] = None):
+    """
+    Get paginated list of all drinks from Elasticsearch.
+    Supports optional search query.
+    """
+    es = get_es_client()
+    if not es:
+        raise HTTPException(status_code=500, detail="Search Engine Error")
+
+    try:
+        # Calculate pagination
+        from_index = (page - 1) * size
+        
+        # Build query
+        if query:
+            es_query = {
+                "query": {
+                    "multi_match": {
+                        "query": query,
+                        "fields": ["drink_name", "drink_intro"],
+                        "fuzziness": "AUTO"
+                    }
+                },
+                "from": from_index,
+                "size": size,
+                "sort": [{"drink_id": {"order": "asc"}}]
+            }
+        else:
+            es_query = {
+                "query": {"match_all": {}},
+                "from": from_index,
+                "size": size,
+                "sort": [{"drink_id": {"order": "asc"}}]
+            }
+        
+        response = es.search(index="drink_info", body=es_query)
+        hits = response['hits']['hits']
+        total = response['hits']['total']['value'] if isinstance(response['hits']['total'], dict) else response['hits']['total']
+        
+        results = []
+        for hit in hits:
+            source = hit['_source']
+            
+            # Format ABV
+            abv = source.get('drink_abv')
+            if abv:
+                try:
+                    abv_float = float(abv)
+                    if abv_float < 1.0:
+                        abv = f"{int(abv_float * 100)}%"
+                    else:
+                        abv = f"{abv}%"
+                except:
+                    abv = f"{abv}%"
+            
+            # Type mapping
+            type_map = {
+                1: "과실주", 2: "리큐르/기타주류", 3: "약주,청주", 4: "증류주", 
+                5: "탁주(고도0)", 6: "탁주(저도)", 7: "기타"
+            }
+            type_id = source.get('type_id')
+            drink_type = type_map.get(type_id, "전통주") if type_id else "전통주"
+
+            # Calculate price from selling_shops (real DB data)
+            selling_shops = source.get('selling_shops', [])
+            price = 0
+            if selling_shops:
+                # Get the minimum price from actual shops
+                prices = [shop.get('price', 0) for shop in selling_shops if shop.get('price', 0) > 0]
+                if prices:
+                    price = min(prices)
+
+            results.append({
+                "id": source.get('drink_id'),
+                "name": source.get('drink_name'),
+                "image_url": source.get('drink_image_url'),
+                "type": drink_type,
+                "alcohol": abv,
+                "volume": source.get('drink_volume'),
+                "price": price,
+                "intro": source.get('drink_intro', ''),
+                "pairing_foods": source.get('pairing_foods', []),
+                "selling_shops": selling_shops
+            })
+        
+        return {
+            "drinks": results,
+            "total": total,
+            "page": page,
+            "size": size,
+            "total_pages": (total + size - 1) // size
+        }
+
+    except Exception as e:
+        print(f"❌ List Search Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

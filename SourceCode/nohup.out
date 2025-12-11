@@ -1,0 +1,14 @@
+Dec 10, 2025 7:38:45 PM org.jenkinsci.remoting.engine.WorkDirManager initializeWorkDir
+INFO: Using /home/kevin/test/remoting as a remoting work directory
+Dec 10, 2025 7:38:45 PM org.jenkinsci.remoting.engine.WorkDirManager setupLogging
+INFO: Both error and output logs will be printed to /home/kevin/test/remoting
+Dec 10, 2025 7:38:45 PM hudson.remoting.Launcher createEngine
+INFO: Setting up agent: app-184
+Dec 10, 2025 7:38:45 PM hudson.remoting.Engine startEngine
+INFO: Using Remoting version: 3327.v868139a_d00e0
+Dec 10, 2025 7:38:45 PM org.jenkinsci.remoting.engine.WorkDirManager initializeWorkDir
+INFO: Using /home/kevin/test/remoting as a remoting work directory
+Dec 10, 2025 7:38:45 PM hudson.remoting.Launcher$CuiListener status
+INFO: WebSocket connection open
+Dec 10, 2025 7:38:45 PM hudson.remoting.Launcher$CuiListener status
+INFO: Connected
