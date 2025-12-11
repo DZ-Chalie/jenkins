@@ -107,6 +107,29 @@ export default function Home() {
     }
   };
 
+  // NEW: Fetch drink details for encyclopedia info
+  const [drinkDetails, setDrinkDetails] = useState<any>(null);
+
+  const fetchDrinkDetails = async (drinkId: number) => {
+    // Don't fetch if drinkId is null or undefined
+    if (!drinkId) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/python/search/detail/${drinkId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDrinkDetails(data);
+      } else {
+        setDrinkDetails(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch drink details:", error);
+      setDrinkDetails(null);
+    }
+  };
+
   const handleSelectRegion = (region: string) => {
     if (selectedRegion === region) return;
 
@@ -207,20 +230,38 @@ export default function Home() {
                   <button
                     className={sortField === 'price' ? styles.activeSortBtn : ''}
                     onClick={() => {
-                      setSortField('price');
-                      if (selectedRegion) fetchLiquors(selectedRegion, selectedCity, selectedSeason);
+                      if (sortField === 'price') {
+                        if (sortOrder === 'asc') {
+                          setSortOrder('desc');
+                        } else {
+                          setSortField(null);
+                          setSortOrder('asc');
+                        }
+                      } else {
+                        setSortField('price');
+                        setSortOrder('asc');
+                      }
                     }}
                   >
-                    가격
+                    💰 가격 {sortField === 'price' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
                   </button>
                   <button
                     className={sortField === 'alcohol' ? styles.activeSortBtn : ''}
                     onClick={() => {
-                      setSortField('alcohol');
-                      if (selectedRegion) fetchLiquors(selectedRegion, selectedCity, selectedSeason);
+                      if (sortField === 'alcohol') {
+                        if (sortOrder === 'asc') {
+                          setSortOrder('desc');
+                        } else {
+                          setSortField(null);
+                          setSortOrder('asc');
+                        }
+                      } else {
+                        setSortField('alcohol');
+                        setSortOrder('asc');
+                      }
                     }}
                   >
-                    도수
+                    🍶 도수 {sortField === 'alcohol' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
                   </button>
                   <button
                     className={sortField === 'weather' ? styles.activeSortBtn : ''}
@@ -231,27 +272,25 @@ export default function Home() {
                   >
                     날씨 ☀️
                   </button>
-                </div>
-              )}
 
-              {/* Location Preference Toggle */}
-              {weatherRec && weatherRec.weather && (
-                <div style={{ marginBottom: '6px', textAlign: 'center' }}>
-                  <button
-                    onClick={() => setWeatherSource(prev => prev === 'user' ? 'map' : 'user')}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: '0.75rem',
-                      borderRadius: '12px',
-                      border: '1px solid #8b4513',
-                      background: 'white',
-                      color: '#8b4513',
-                      cursor: 'pointer',
-                      fontWeight: '500'
-                    }}
-                  >
-                    📍 {weatherSource === 'user' ? '내 위치' : '지도 위치'} 기준
-                  </button>
+                  {/* Location Preference Toggle */}
+                  {weatherRec && weatherRec.weather && (
+                    <button
+                      onClick={() => setWeatherSource(prev => prev === 'user' ? 'map' : 'user')}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: '0.75rem',
+                        borderRadius: '8px',
+                        border: '1px solid #8b4513',
+                        background: 'rgba(255, 255, 255, 0.7)',
+                        color: '#5d4037',
+                        cursor: 'pointer',
+                        fontWeight: '500'
+                      }}
+                    >
+                      📍 {weatherSource === 'user' ? '내 위치' : '지도 위치'}
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -286,49 +325,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Sort Buttons */}
-              {selectedRegion && (
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                  <button
-                    className={`${styles.seasonChip} ${sortField === 'price' ? styles.active : ''}`}
-                    onClick={() => {
-                      if (sortField === 'price') {
-                        if (sortOrder === 'asc') {
-                          setSortOrder('desc');
-                        } else {
-                          setSortField(null);
-                          setSortOrder('asc');
-                        }
-                      } else {
-                        setSortField('price');
-                        setSortOrder('asc');
-                      }
-                    }}
-                    style={{ fontSize: '0.85rem', padding: '6px 12px' }}
-                  >
-                    💰 가격 {sortField === 'price' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-                  </button>
-                  <button
-                    className={`${styles.seasonChip} ${sortField === 'alcohol' ? styles.active : ''}`}
-                    onClick={() => {
-                      if (sortField === 'alcohol') {
-                        if (sortOrder === 'asc') {
-                          setSortOrder('desc');
-                        } else {
-                          setSortField(null);
-                          setSortOrder('asc');
-                        }
-                      } else {
-                        setSortField('alcohol');
-                        setSortOrder('asc');
-                      }
-                    }}
-                    style={{ fontSize: '0.85rem', padding: '6px 12px' }}
-                  >
-                    🍶 도수 {sortField === 'alcohol' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
-                  </button>
-                </div>
-              )}
+
 
               <div className={styles.liquorList}>
                 {selectedRegion ? (
@@ -360,6 +357,10 @@ export default function Home() {
                           onClick={() => {
                             setSelectedLiquor(liquor);
                             fetchProducts(liquor.name);
+                            // Only fetch details if liquor.id exists
+                            if (liquor.id) {
+                              fetchDrinkDetails(liquor.id);
+                            }
                           }}
                         >
                           <div
@@ -542,6 +543,35 @@ export default function Home() {
                           <div style={{ fontSize: '1.2rem', color: '#8d6e63' }}>→</div>
                         </a>
                       ))}
+                    </div>
+                  ) : drinkDetails?.price_is_reference ? (
+                    <div style={{ textAlign: 'center', padding: '30px 20px', background: "url('/한지.jpg')", backgroundSize: 'cover', borderRadius: '12px', border: '2px solid #d7ccc8' }}>
+                      <p style={{ fontSize: '2.5rem', marginBottom: '10px' }}>📚</p>
+                      <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>구매 정보</h3>
+                      <p style={{ margin: '0 0 15px 0', fontSize: '0.95rem', color: '#333' }}>현재 온라인 판매처 정보가 없습니다.</p>
+                      {drinkDetails.encyclopedia_price_text && (
+                        <div style={{ background: 'rgba(255,243,224,0.6)', border: '1px solid #ffca28', borderRadius: '8px', padding: '12px', marginBottom: '15px' }}>
+                          <strong style={{ display: 'block', marginBottom: '8px', color: '#e65100', fontSize: '0.95rem' }}>💰 참고 가격</strong>
+                          <div style={{ fontSize: '0.95rem', color: '#3e2723', fontWeight: '600', lineHeight: '1.6' }}>
+                            {(() => {
+                              const priceText = drinkDetails.encyclopedia_price_text.replace(/\(가격은 판매처 별로 상이할 수 있습니다\)/g, '');
+                              const matches = priceText.match(/(\d+ml\s*￦[\d,]+)/g) || [];
+                              return matches.map((item: string, idx: number) => (
+                                <div key={idx} style={{ marginBottom: idx < matches.length - 1 ? '4px' : '0' }}>
+                                  {item.trim()}
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                          <p style={{ margin: '8px 0 0 0', fontSize: '0.75rem', color: '#795548' }}>(가격은 판매처 별로 상이할 수 있습니다)</p>
+                        </div>
+                      )}
+                      <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '12px' }}>더 자세한 제품 정보는 네이버 지식백과에서 확인하실 수 있습니다.</p>
+                      {drinkDetails.encyclopedia_url && (
+                        <a href={drinkDetails.encyclopedia_url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', background: 'linear-gradient(45deg, #ff6f00, #ffca28)', color: 'white', padding: '10px 20px', borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none', boxShadow: '0 3px 6px rgba(0,0,0,0.1)' }}>
+                          📖 지식백과에서 보기 →
+                        </a>
+                      )}
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px 20px', color: '#888' }}>

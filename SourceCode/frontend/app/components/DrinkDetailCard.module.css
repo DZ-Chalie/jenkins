@@ -6,8 +6,7 @@
     border-radius: 20px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    padding: 40px;
     animation: slideUp 0.5s ease-out;
     text-align: left;
     margin-bottom: 2rem;
@@ -15,7 +14,7 @@
 
 @media (min-width: 768px) {
     .card {
-        flex-direction: row;
+        padding: 50px;
     }
 }
 
@@ -188,6 +187,56 @@
     border-color: rgba(220, 180, 120, 0.7);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(100, 70, 40, 0.4);
+}
+
+/* AI Tabs Section */
+.aiTabs {
+    margin-top: 40px;
+    border-radius: 20px;
+    background: url('/한지.jpg');
+    background-size: cover;
+    padding: 30px;
+    border: 1px solid #d7ccc8;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.tabButtons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 25px;
+    border-bottom: 3px solid #e0e0e0;
+    padding-bottom: 0;
+    flex-wrap: wrap;
+}
+
+.tabButtons button {
+    padding: 14px 28px;
+    border: none;
+    background: transparent;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-bottom: 4px solid transparent;
+    transition: all 0.3s ease;
+    color: #666;
+    white-space: nowrap;
+    margin-bottom: -3px;
+}
+
+.tabButtons button:hover {
+    color: #ff8f00;
+    background: rgba(255, 143, 0, 0.05);
+}
+
+.tabButtons button.active {
+    color: #ff6f00;
+    border-bottom-color: #ff6f00;
+    background: rgba(255, 143, 0, 0.08);
+}
+
+.tabContent {
+    min-height: 350px;
+    padding-top: 20px;
 }
 
 @keyframes slideUp {

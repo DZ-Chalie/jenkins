@@ -1,0 +1,337 @@
+.container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    gap: 20px;
+    padding: 40px;
+    background: url('/한지흰색.jpg') repeat;
+    background-size: 300px;
+}
+
+/* Left Section - Cocktail List */
+.leftSection {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    background: url('/한지.jpg');
+    background-size: cover;
+    border-radius: 24px;
+    padding: 35px 30px;
+    box-shadow: 0 8px 32px rgba(141, 110, 99, 0.2);
+    border: 2px solid rgba(141, 110, 99, 0.15);
+    animation: slideInLeft 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-50px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Right Section - Awards */
+.rightSection {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    background: url('/한지.jpg');
+    background-size: cover;
+    border-radius: 24px;
+    padding: 35px 30px;
+    box-shadow: 0 8px 32px rgba(141, 110, 99, 0.2);
+    border: 2px solid rgba(141, 110, 99, 0.15);
+    animation: slideInRight 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Section Title */
+.sectionTitle {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #4e342e;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+    padding-bottom: 15px;
+    border-bottom: 3px solid rgba(141, 110, 99, 0.2);
+}
+
+.titleIcon {
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Cocktail List */
+.cocktailList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    max-height: 550px;
+    padding-right: 10px;
+}
+
+.cocktailList::-webkit-scrollbar {
+    width: 6px;
+}
+
+.cocktailList::-webkit-scrollbar-track {
+    background: rgba(141, 110, 99, 0.05);
+    border-radius: 3px;
+}
+
+.cocktailList::-webkit-scrollbar-thumb {
+    background: rgba(141, 110, 99, 0.3);
+    border-radius: 3px;
+}
+
+.cocktailList::-webkit-scrollbar-thumb:hover {
+    background: rgba(141, 110, 99, 0.5);
+}
+
+/* Cocktail Item */
+.cocktailItem {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 18px 20px;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(141, 110, 99, 0.15);
+    animation: fadeInUp 0.5s ease-out backwards;
+}
+
+.cocktailItem:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.cocktailItem:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.cocktailItem:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.cocktailItem:nth-child(4) {
+    animation-delay: 0.25s;
+}
+
+.cocktailItem:nth-child(5) {
+    animation-delay: 0.3s;
+}
+
+.cocktailItem:nth-child(6) {
+    animation-delay: 0.35s;
+}
+
+.cocktailItem:nth-child(7) {
+    animation-delay: 0.4s;
+}
+
+.cocktailItem:nth-child(8) {
+    animation-delay: 0.45s;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.cocktailItem:hover {
+    background: rgba(255, 255, 255, 0.95);
+    transform: translateX(8px);
+    box-shadow: 0 6px 20px rgba(141, 110, 99, 0.25);
+    border-color: rgba(141, 110, 99, 0.3);
+}
+
+/* Cocktail Number */
+.cocktailNumber {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #8d6e63, #6d4c41);
+    color: #fff8e1;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    font-weight: 800;
+    box-shadow: 0 4px 12px rgba(141, 110, 99, 0.4);
+    transition: all 0.3s;
+}
+
+.cocktailItem:hover .cocktailNumber {
+    transform: rotate(360deg) scale(1.1);
+    box-shadow: 0 6px 16px rgba(141, 110, 99, 0.6);
+}
+
+/* Cocktail Name */
+.cocktailName {
+    flex: 1;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #4e342e;
+    letter-spacing: 0.3px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Cocktail Arrow */
+.cocktailArrow {
+    font-size: 1.3rem;
+    color: #8d6e63;
+    transition: all 0.3s;
+    opacity: 0;
+    transform: translateX(-10px);
+}
+
+.cocktailItem:hover .cocktailArrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* Award List */
+.awardList {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+    max-height: 550px;
+    padding-right: 10px;
+}
+
+.awardList::-webkit-scrollbar {
+    width: 6px;
+}
+
+.awardList::-webkit-scrollbar-track {
+    background: rgba(141, 110, 99, 0.05);
+    border-radius: 3px;
+}
+
+.awardList::-webkit-scrollbar-thumb {
+    background: rgba(141, 110, 99, 0.3);
+    border-radius: 3px;
+}
+
+.awardList::-webkit-scrollbar-thumb:hover {
+    background: rgba(141, 110, 99, 0.5);
+}
+
+/* Award Item */
+.awardItem {
+    position: relative;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 20px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid rgba(141, 110, 99, 0.15);
+    box-shadow: 0 6px 24px rgba(141, 110, 99, 0.15);
+    animation: scaleIn 0.6s ease-out backwards;
+}
+
+.awardItem:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.awardItem:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.awardItem:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.awardItem:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(141, 110, 99, 0.3);
+    border-color: rgba(141, 110, 99, 0.3);
+}
+
+/* Award Image Wrapper */
+.awardImageWrapper {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    /* Increased from 280px for vertical images */
+    background: #fff;
+}
+
+/* Award Year Badge */
+.awardYear {
+    position: absolute;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #d4a574, #c49a6c);
+    padding: 10px 28px;
+    border-radius: 25px;
+    font-weight: 800;
+    color: #fff;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 16px rgba(212, 165, 116, 0.5);
+    letter-spacing: 1px;
+    transition: all 0.3s;
+}
+
+.awardItem:hover .awardYear {
+    transform: translateX(-50%) scale(1.1);
+    box-shadow: 0 6px 24px rgba(212, 165, 116, 0.7);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .container {
+        flex-direction: column;
+        padding: 30px 20px;
+    }
+
+    .leftSection,
+    .rightSection {
+        max-height: 400px;
+    }
+}

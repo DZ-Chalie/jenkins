@@ -137,75 +137,134 @@ async def analyze_image(
         from app.api.search import search_liquor_fuzzy
         detected_text = result.get('text', '')
         if detected_text:
-            # Clean text for better search
             import re
-            # Remove common keywords that might confuse search
-            keywords_to_remove = ["막걸리", "약주", "청주", "소주", "과실주", "리큐르", "ALC", "VOL", "%", "ML", "L", "ml", "l"]
-            cleaned_text = detected_text
-            for kw in keywords_to_remove:
-                cleaned_text = re.sub(kw, "", cleaned_text, flags=re.IGNORECASE)
             
-            # Remove special characters but keep Hangul and spaces
-            # cleaned_text = re.sub(r"[^가-힣\s]", "", cleaned_text) # Too aggressive?
-            
-            # Blocklist to filter out instructional/warning text
+            # Blocklist to filter out instructional/warning text (keep this)
             blocklist = [
                 "개봉", "보관", "반품", "유통기한", "경고", "지나친", "음주", "청소년", "임신", 
                 "원재료", "업소명", "소재지", "내용량", "식품유형", "고객", "상담", "신고", 
-                "불량식품", "뚜껑", "취급", "교환", "환불", "소비자", "분쟁", "해결", "기준", "의거"
+                "불량식품", "뚜껑", "취급", "교환", "환불", "소비자", "분쟁", "해결", "기준", "의거",
+                "100%", "우리쌀", "빚은", "증류식", "명품", "참좋은", "전통", "방식"
             ]
             
-            # Just take the first line or first few words as it's usually the name
-            lines = [line.strip() for line in cleaned_text.split('\n') if line.strip()]
+            # Split into lines
+            lines = [line.strip() for line in detected_text.split('\n') if line.strip()]
             
-            # Strategy: Prioritize Korean lines that are NOT in the blocklist
-            valid_korean_lines = []
+            # Strategy 1: Find Korean product names (usually 2-6 characters)
+            # Look for patterns like "안동소주", "백세주", "이화주" etc.
+            product_name_candidates = []
+            
             for line in lines:
-                if re.search(r'[가-힣]', line):
-                    # Check if line contains any blocklist keyword
-                    if not any(keyword in line for keyword in blocklist):
-                        valid_korean_lines.append(line)
-            
-            if valid_korean_lines:
-                # If we have valid Korean lines, use the first one
-                search_query = valid_korean_lines[0]
-                # If the first line is very short (e.g., "지란"), append the second valid line if available
-                if len(valid_korean_lines) > 1 and len(search_query) < 5: 
-                     search_query += " " + valid_korean_lines[1]
-            elif lines:
-                # Fallback to first line if no valid Korean lines found (or all filtered out)
-                # Still try to avoid blocklisted lines if possible
-                valid_lines = [line for line in lines if not any(keyword in line for keyword in blocklist)]
-                if valid_lines:
-                    search_query = valid_lines[0]
-                else:
-                    search_query = lines[0] # Last resort
+                # Skip lines with blocklist keywords
+                if any(keyword in line for keyword in blocklist):
+                    continue
                 
-                if len(lines) > 1 and len(search_query) < 3:
-                    search_query += " " + lines[1]
+                # Skip lines with percentage, ml, alcohol content
+                if re.search(r'\d+%|\d+ml|alc\.|vol\.', line, re.IGNORECASE):
+                    continue
+                    
+                # Extract Korean phrases (2-10 characters)
+                korean_phrases = re.findall(r'[가-힣]{2,10}', line)
+                
+                # Also extract English words (for romanized matching)
+                english_words = re.findall(r'\b[a-zA-Z]{3,15}\b', line)
+                
+                # Process Korean phrases
+                for phrase in korean_phrases:
+                    # Skip common generic words ONLY if they appear alone
+                    if phrase in ["막걸리", "약주", "청주", "과실주", "리큐르"]:
+                        continue
+                    
+                    # Priority: lines with regional names + product type (e.g., "안동소주", "경주법주")
+                    if any(region in phrase for region in ["안동", "경주", "문배", "진주", "이강", "양촌", "서울"]):
+                        product_name_candidates.insert(0, phrase)  # High priority
+                    else:
+                        product_name_candidates.append(phrase)
+                
+                # Process English words (rely on ES romanized field)
+                for word in english_words:
+                    # Skip common English words that aren't product names
+                    if word.lower() in ['the', 'and', 'for', 'with', 'alcohol', 'traditional', 'korean', 'rice', 'wine', 'beer', 'spirits']:
+                        continue
+                    # Add English candidates (ES will match via romanized field)
+                    product_name_candidates.append(word)
+            
+            # Strategy 2: If no good candidates, use first valid Korean line
+            if not product_name_candidates:
+                for line in lines:
+                    if re.search(r'[가-힣]', line):
+                        if not any(keyword in line for keyword in blocklist):
+                            # Extract just Korean characters
+                            korean_only = re.sub(r'[^가-힣\s]', '', line).strip()
+                            if korean_only and len(korean_only) >= 2:
+                                product_name_candidates.append(korean_only)
+                                break
+            
+            # Choose the best candidate
+            if product_name_candidates:
+                search_query = product_name_candidates[0]
+            elif lines:
+                # Last resort: use first non-blocklisted line
+                valid_lines = [line for line in lines if not any(keyword in line for keyword in blocklist)]
+                search_query = valid_lines[0] if valid_lines else lines[0]
             else:
-                search_query = cleaned_text[:20]
+                search_query = detected_text[:20]
 
             print(f"🔍 Search Query: '{search_query}'")
             search_result = search_liquor_fuzzy(search_query)
             
-            # [NEW] Romanization Support (Hangulize)
+            # [NEW] Romanization Support (Hangulize + Custom Mapping)
             # If no result found AND query is English, try converting to Hangul
             if not search_result and re.match(r'^[a-zA-Z0-9\s\.,]+$', search_query):
-                try:
-                    from hangulize import hangulize
-                    # Use 'ita' (Italian) as a proxy for phonetic reading of Romanized words
-                    # 'eng' is often not available or too complex for simple transliteration
-                    hangul_query = hangulize(search_query, 'ita') 
-                    print(f"🔤 Hangulized Query: '{search_query}' -> '{hangul_query}'")
-                    
-                    # Search again with Hangulized query
-                    hangul_search_result = search_liquor_fuzzy(hangul_query)
-                    if hangul_search_result:
-                        search_result = hangul_search_result
-                        print(f"✅ Hangulized Match Found: '{search_result['name']}'")
-                except Exception as e:
-                    print(f"⚠️ Hangulize Error: {e}")
+                # Custom mapping for common traditional liquor names
+                custom_romanization = {
+                    "geisha": "게이샤",
+                    "baekseju": "백세주",
+                    "makgeolli": "막걸리",
+                    "hwayo": "화요",
+                    "andong": "안동",
+                    "gyeongju": "경주",
+                    "chamisul": "참이슬",
+                    "jinro": "진로",
+                    "bokbunja": "복분자",
+                    "soju": "소주",
+                    "yakju": "약주",
+                    "cheongju": "청주",
+                }
+                
+                # Try custom mapping first
+                query_lower = search_query.lower().strip()
+                if query_lower in custom_romanization:
+                    hangul_query = custom_romanization[query_lower]
+                    print(f"🗺️ Custom Mapping: '{search_query}' -> '{hangul_query}'")
+                    search_result = search_liquor_fuzzy(hangul_query)
+                    if search_result:
+                        print(f"✅ Custom Match Found: '{search_result['name']}'")
+                
+                # If custom mapping didn't work, try Hangulize with multiple languages
+                if not search_result:
+                    try:
+                        from hangulize import hangulize
+                        # Try multiple language profiles
+                        language_profiles = ['jpn', 'eng', 'ita']  # Japanese, English, Italian
+                        
+                        for lang in language_profiles:
+                            try:
+                                hangul_query = hangulize(search_query, lang)
+                                print(f"🔤 Hangulize ({lang}): '{search_query}' -> '{hangul_query}'")
+                                
+                                # Search with hangulized query
+                                hangul_search_result = search_liquor_fuzzy(hangul_query)
+                                if hangul_search_result:
+                                    search_result = hangul_search_result
+                                    print(f"✅ Hangulize Match Found ({lang}): '{search_result['name']}'")
+                                    break
+                            except Exception as lang_err:
+                                print(f"⚠️ Hangulize {lang} failed: {lang_err}")
+                                continue
+                                
+                    except Exception as e:
+                        print(f"⚠️ Hangulize Error: {e}")
 
             if search_result:
                 result['search_result'] = search_result

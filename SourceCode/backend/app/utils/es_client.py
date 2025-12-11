@@ -1,27 +1,75 @@
 from elasticsearch import Elasticsearch
 import os
 
-ES_HOST = os.getenv("ELASTICSEARCH_HOST", "192.168.0.36")
-ES_PORT = os.getenv("ELASTICSEARCH_PORT", "9200")
-ES_URL = f"http://{ES_HOST}:{ES_PORT}"
-
-ES_USERNAME = os.getenv("ELASTICSEARCH_USERNAME", "elastic")
-ES_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD", "pass123")
-
 import time
 
+def get_connected_node_info(es):
+    """현재 연결된 Elasticsearch 노드 정보를 반환하고 로그 출력"""
+    try:
+        # 클러스터 정보 가져오기
+        info = es.info()
+        node_name = info.get('name', 'Unknown')
+        cluster_name = info.get('cluster_name', 'Unknown')
+        version = info.get('version', {}).get('number', 'Unknown')
+        
+        # 클러스터의 모든 노드 정보
+        nodes_info = es.cat.nodes(format='json')
+        
+        print("=" * 60)
+        print("✅ Elasticsearch 연결 성공!")
+        print(f"📍 현재 연결된 노드: {node_name}")
+        print(f"🔗 클러스터 이름: {cluster_name}")
+        print(f"📦 Elasticsearch 버전: {version}")
+        print(f"🖥️  클러스터 전체 노드 수: {len(nodes_info)}")
+        
+        # 모든 노드 정보 출력
+        if nodes_info:
+            print("\n📋 클러스터 노드 목록:")
+            for node in nodes_info:
+                role = node.get('node.role', 'unknown')
+                master = '⭐ (master)' if node.get('master') == '*' else ''
+                print(f"  - {node.get('name', 'unknown')} | IP: {node.get('ip', 'N/A')} | Role: {role} {master}")
+        
+        print("=" * 60)
+        
+        return {
+            'node_name': node_name,
+            'cluster_name': cluster_name,
+            'version': version,
+            'all_nodes': nodes_info
+        }
+    except Exception as e:
+        print(f"❌ 노드 정보 확인 실패: {e}")
+        return None
+
 def get_es_client(max_retries=5, retry_delay=2):
+    # Load env variables inside function to ensure dotenv has loaded
+    ES_HOSTS = os.getenv("ELASTICSEARCH_HOSTS")
+    ES_PORT = os.getenv("ELASTICSEARCH_PORT", "9200")
+    ES_USERNAME = os.getenv("ELASTICSEARCH_USERNAME")
+    ES_PASSWORD = os.getenv("ELASTICSEARCH_PASSWORD")
+    
+    # Validate required env variables
+    if not ES_HOSTS:
+        raise ValueError("ELASTICSEARCH_HOSTS environment variable is required")
+    if not ES_USERNAME or not ES_PASSWORD:
+        raise ValueError("ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD are required")
+    
+    # Parse multiple hosts from comma-separated string
+    hosts = [f"http://{host.strip()}:{ES_PORT}" for host in ES_HOSTS.split(",")]
+    
+    print(f"🔍 Attempting to connect to Elasticsearch cluster at: {hosts}")
+    print(f"🔍 Username: {ES_USERNAME}")
+    
     retries = 0
     while retries < max_retries:
         try:
-            # Use basic_auth if password is provided
-            if ES_PASSWORD:
-                es = Elasticsearch(ES_URL, basic_auth=(ES_USERNAME, ES_PASSWORD))
-            else:
-                es = Elasticsearch(ES_URL)
+            # Use basic_auth
+            es = Elasticsearch(hosts, basic_auth=(ES_USERNAME, ES_PASSWORD))
                 
             if es.ping():
-                print("Connected to Elasticsearch")
+                # 연결 성공 시 노드 정보 출력
+                get_connected_node_info(es)
                 return es
             else:
                 print(f"Elasticsearch ping failed. Retrying ({retries+1}/{max_retries})...")

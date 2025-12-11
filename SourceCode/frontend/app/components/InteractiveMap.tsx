@@ -199,7 +199,7 @@ export default function InteractiveMap({ selectedRegion, onSelectRegion, onSelec
         <div className={styles.mapContainer}>
             {/* Left: Main Korea Map (Dynamic Resizing) */}
             <div className={`${styles.mapPanel} ${(isCityView || (selectedRegion && !isDataLoaded)) ? styles.collapsed : styles.expanded}`}>
-                <h3 className={styles.mapTitle}>대한민국</h3>
+                <h3 className={styles.mapTitle}></h3>
                 <svg
                     viewBox="-50 -50 600 750"
                     className={styles.mapSvg}

@@ -10,11 +10,25 @@ interface SearchRank {
   drink_id?: number;
 }
 
+interface AutocompleteItem {
+  id: number;
+  name: string;
+  image_url: string;
+  score: number;
+}
+
 export default function RealTimeSearchRanking() {
   const [topSearches, setTopSearches] = useState<SearchRank[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Autocomplete state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [autocompleteResults, setAutocompleteResults] = useState<AutocompleteItem[]>([]);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -61,6 +75,43 @@ export default function RealTimeSearchRanking() {
     }
   };
 
+  // Autocomplete search handler with debounce
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+    if (query.length > 1) {
+      searchTimeout.current = setTimeout(async () => {
+        try {
+          const res = await fetch("/api/python/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.candidates) {
+              setAutocompleteResults(data.candidates);
+              setShowAutocomplete(true);
+            }
+          }
+        } catch (err) {
+          console.error("Autocomplete search failed", err);
+        }
+      }, 300);
+    } else {
+      setShowAutocomplete(false);
+    }
+  };
+
+  const selectLiquor = (liquor: AutocompleteItem) => {
+    router.push(`/drink/${liquor.id}`);
+    setSearchQuery("");
+    setShowAutocomplete(false);
+  };
+
   // 마우스가 container 영역 밖으로 나갔는지 확인
   const handleMouseLeave = (e: React.MouseEvent) => {
     // 관련된 요소(container 또는 fullList)로 이동했는지 확인
@@ -73,7 +124,7 @@ export default function RealTimeSearchRanking() {
   // 데이터가 없어도 컴포넌트는 표시 (로딩 상태)
   if (loading) {
     return (
-      <div className={styles.container} style={{ width: '250px' }}>
+      <div className={styles.container}>
         <div className={styles.label}>실시간 검색어</div>
         <div className={styles.currentItem}>
           <span className={styles.query} style={{ fontSize: '0.85rem', color: '#999' }}>로딩 중...</span>
@@ -84,7 +135,7 @@ export default function RealTimeSearchRanking() {
 
   if (topSearches.length === 0) {
     return (
-      <div className={styles.container} style={{ width: '250px' }}>
+      <div className={styles.container}>
         <div className={styles.label}>실시간 검색어</div>
         <div className={styles.currentItem}>
           <span className={styles.query} style={{ fontSize: '0.85rem', color: '#999' }}>검색 데이터 없음</span>
@@ -99,45 +150,45 @@ export default function RealTimeSearchRanking() {
     <div
       ref={containerRef}
       className={styles.container}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={handleMouseLeave}
     >
       <div className={styles.label}>실시간 검색어</div>
-      {!isHovered ? (
-        // 기본: 현재 순위만 표시
-        <div className={styles.currentItem}>
-          <span className={styles.rank}>{currentIndex + 1}</span>
-          <span
-            className={styles.query}
-            onClick={() => handleSearchClick(currentSearch)}
-            title={currentSearch.query}
-          >
-            {currentSearch.query}
-          </span>
-        </div>
-      ) : (
-        // 호버: 전체 Top10 표시
-        <div 
-          className={styles.fullList}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={handleMouseLeave}
-        >
-          {topSearches.map((search, index) => (
-            <div
-              key={index}
-              className={`${styles.rankItem} ${
-                index === currentIndex ? styles.active : ""
-              }`}
-              onClick={() => handleSearchClick(search)}
-              title={search.query}
+
+      {/* Scroll Wrapper - Only this part unfurls */}
+      <div
+        className={styles.scrollWrapper}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={handleMouseLeave}
+      >
+        {!isHovered ? (
+          // 기본: 현재 순위만 표시
+          <div className={styles.currentItem}>
+            <span className={styles.rank}>{currentIndex + 1}</span>
+            <span
+              className={styles.query}
+              onClick={() => handleSearchClick(currentSearch)}
+              title={currentSearch.query}
             >
-              <span className={styles.rankNumber}>{index + 1}</span>
-              <span className={styles.queryText}>{search.query}</span>
-              <span className={styles.count}>({search.count})</span>
-            </div>
-          ))}
-        </div>
-      )}
+              {currentSearch.query}
+            </span>
+          </div>
+        ) : (
+          // 호버: 전체 Top10 표시
+          <div className={styles.fullList}>
+            {topSearches.map((search, index) => (
+              <div
+                key={index}
+                className={`${styles.rankItem} ${index === currentIndex ? styles.active : ""}`}
+                onClick={() => handleSearchClick(search)}
+                title={search.query}
+              >
+                <span className={styles.rankNumber}>{index + 1}</span>
+                <span className={styles.queryText}>{search.query}</span>
+                <span className={styles.count}>({search.count})</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -2,8 +2,10 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
 import styles from "./page.module.css";
 import DrinkDetailCard from "../components/DrinkDetailCard";
+import { Upload } from 'lucide-react';
 
 
 interface Cocktail {
@@ -17,13 +19,23 @@ interface Cocktail {
     youtube_thumbnail_url?: string;
 }
 
+interface HansangItem {
+    name: string;
+    image_url?: string;
+    reason: string;
+    link_url?: string;
+}
+
 interface SearchResult {
+    id?: number;
     name: string;
     description: string;
     intro?: string;
     tags: string[];
     image_url?: string;
     url?: string;
+    province?: string;
+    city?: string;
     detail?: {
         알콜도수?: string;
         용량?: string;
@@ -63,18 +75,22 @@ interface SearchResult {
 }
 
 function OCRContent() {
+    const { data: session } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [result, setResult] = useState<string>("");
-    const [provider, setProvider] = useState<string>("clova");
+    const [provider, setProvider] = useState<string>("gemini");
     const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
     const [viewState, setViewState] = useState<'input' | 'loading' | 'result'>('input');
     const [isGeneratingCocktail, setIsGeneratingCocktail] = useState<boolean>(false);
     const [generatedFood, setGeneratedFood] = useState<{ name: string, reason: string } | null>(null);
     const [generatedCocktails, setGeneratedCocktails] = useState<Cocktail[]>([]);
     const [autoGenerateAI, setAutoGenerateAI] = useState<boolean>(false);
+    const [generatedHansang, setGeneratedHansang] = useState<HansangItem[]>([]);
+    const [isGeneratingHansang, setIsGeneratingHansang] = useState<boolean>(false);
+    const [isDragging, setIsDragging] = useState<boolean>(false);
 
     // Handle URL query params for direct search
     useEffect(() => {
@@ -123,6 +139,35 @@ function OCRContent() {
         }
     };
 
+    // Drag and drop handlers
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(false);
+
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith('image/')) {
+                setSelectedImage(file);
+                setPreviewUrl(URL.createObjectURL(file));
+                setResult("");
+                setSearchResult(null);
+                setIsGeneratingCocktail(false);
+                setGeneratedFood(null);
+                setGeneratedCocktails([]);
+            }
+        }
+    };
+
     const generateCocktail = async (drinkName: string) => {
         setIsGeneratingCocktail(true);
         try {
@@ -162,6 +207,32 @@ function OCRContent() {
             console.error("Failed to generate cocktail", error);
         } finally {
             setIsGeneratingCocktail(false);
+        }
+    };
+
+    const generateHansang = async (province: string, city: string) => {
+        setIsGeneratingHansang(true);
+        try {
+            const response = await fetch('/api/python/hansang/recommend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    drink_name: searchResult?.name || '',
+                    province,
+                    city,
+                    drink_description: searchResult?.description || searchResult?.intro || ''
+                }),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setGeneratedHansang(data.items || []);
+            } else {
+                console.error("Failed to generate hansang:", await response.text());
+            }
+        } catch (error) {
+            console.error("Failed to generate hansang", error);
+        } finally {
+            setIsGeneratingHansang(false);
         }
     };
 
@@ -221,12 +292,15 @@ function OCRContent() {
         setSearchResult(null);
         setIsGeneratingCocktail(false);
         setGeneratedFood(null);
+        setGeneratedHansang([]);
+        setIsGeneratingHansang(false);
         setGeneratedCocktails([]);
     };
 
     return (
         <div className={styles.container} style={{
-            backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/backgroud.PNG')",
+
+            backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/background.png')",
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundAttachment: 'fixed',
@@ -249,26 +323,20 @@ function OCRContent() {
                         전통주 라벨 사진을 업로드하면 AI가 어떤 술인지 알려드려요!
                     </p>
 
-                    <div className={styles.providerSelectContainer} style={{ marginBottom: "20px", textAlign: "center", background: "url('/한지.jpg')", backgroundSize: "cover", padding: "10px", borderRadius: "8px", display: "inline-block", color: "#4e342e", border: "1px solid #d7ccc8" }}>
-                        <label htmlFor="provider-select" style={{ marginRight: "10px", fontWeight: "bold" }}>OCR 엔진 선택:</label>
-                        <select
-                            id="provider-select"
-                            value={provider}
-                            onChange={(e) => setProvider(e.target.value)}
-                            style={{
-                                padding: "8px 12px",
-                                borderRadius: "8px",
-                                border: "1px solid #ccc",
-                                fontSize: "20px",
-                                backgroundColor: "rgba(255,255,255,0.5)",
-                                cursor: "pointer",
-                                color: "#4e342e",
-                                fontWeight: "bold"
-                            }}
+                    {/* OCR Toggle Buttons */}
+                    <div className={styles.ocrToggleContainer}>
+                        <button
+                            className={`${styles.ocrToggleButton} ${provider === 'gemini' ? styles.active : ''}`}
+                            onClick={() => setProvider('gemini')}
                         >
-                            <option value="gemini">Gemini Vision</option>
-                            <option value="clova">Clova OCR</option>
-                        </select>
+                            Gemini Vision
+                        </button>
+                        <button
+                            className={`${styles.ocrToggleButton} ${provider === 'clova' ? styles.active : ''}`}
+                            onClick={() => setProvider('clova')}
+                        >
+                            Clova OCR
+                        </button>
                     </div>
 
                     {/* AI Auto-Generation Toggle */}
@@ -283,7 +351,12 @@ function OCRContent() {
                     </div>
 
                     <form onSubmit={handleSubmit} className={styles.form}>
-                        <div className={styles.uploadBox}>
+                        <div
+                            className={`${styles.uploadBox} ${isDragging ? styles.dragging : ''}`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                        >
                             <input
                                 type="file"
                                 accept="image/*"
@@ -296,8 +369,8 @@ function OCRContent() {
                                     <img src={previewUrl} alt="Preview" className={styles.previewImage} />
                                 ) : (
                                     <div className={styles.placeholder}>
-                                        <span style={{ fontSize: '3rem', marginBottom: '0.5rem', display: 'block' }}>☁️⬆️</span>
-                                        <span style={{ color: '#5d4037', fontWeight: 'bold' }}>사진 업로드 또는 드래그</span>
+                                        <Upload size={60} strokeWidth={1.5} color="#5d4037" />
+                                        <span style={{ color: '#5d4037', fontWeight: 'bold', marginTop: '12px' }}>사진 업로드 또는 드래그</span>
                                     </div>
                                 )}
                             </label>
@@ -315,34 +388,59 @@ function OCRContent() {
             )}
 
             {viewState === 'result' && (
-                <div className={styles.resultContainer} style={{ maxWidth: '100%', width: '98%', margin: '0 auto', padding: '0 20px' }}>
+                <div className={styles.resultContainer} style={{ maxWidth: '100%', width: '98%', margin: '0 auto', padding: '0 20px', position: 'relative' }}>
                     <h1 className={styles.title}>분석 결과</h1>
 
-                    {searchResult ? (
-                        <>
-                            <DrinkDetailCard
-                                drink={searchResult}
-                                isOCR={true}
-                                onGenerateCocktail={generateCocktail}
-                                generatedFood={generatedFood}
-                                generatedCocktails={generatedCocktails}
-                                isGeneratingCocktail={isGeneratingCocktail}
-                            />
-
-                            <div className={styles.rawTextSection}>
-                                <details>
-                                    <summary>OCR 인식 텍스트 보기</summary>
-                                    <pre className={styles.rawText}>{result}</pre>
-                                </details>
+                    {/* Blur overlay when not logged in */}
+                    {!session && (
+                        <div className={styles.authOverlay}>
+                            <div className={styles.authCard}>
+                                <div className={styles.authIcon}>🔒</div>
+                                <h2 className={styles.authTitle}>로그인이 필요한 서비스입니다</h2>
+                                <p className={styles.authDescription}>
+                                    OCR 분석 결과를 보려면 로그인해야 합니다
+                                </p>
+                                <button
+                                    className={styles.authButton}
+                                    onClick={() => signIn("cognito", { callbackUrl: "/ocr" })}
+                                >
+                                    로그인하기
+                                </button>
                             </div>
-                        </>
-                    ) : (
-                        <div className={styles.noMatch}>
-                            <h3>일치하는 술을 찾지 못했습니다.</h3>
-                            <p>인식된 텍스트:</p>
-                            <pre>{result}</pre>
                         </div>
                     )}
+
+                    {/* Blurred content */}
+                    <div className={!session ? styles.blurredContent : ''}>
+                        {searchResult ? (
+                            <>
+                                <DrinkDetailCard
+                                    drink={searchResult}
+                                    isOCR={true}
+                                    onGenerateCocktail={generateCocktail}
+                                    generatedFood={generatedFood}
+                                    generatedCocktails={generatedCocktails}
+                                    isGeneratingCocktail={isGeneratingCocktail}
+                                    onGenerateHansang={generateHansang}
+                                    generatedHansang={generatedHansang}
+                                    isGeneratingHansang={isGeneratingHansang}
+                                />
+
+                                <div className={styles.rawTextSection}>
+                                    <details>
+                                        <summary>OCR 인식 텍스트 보기</summary>
+                                        <pre className={styles.rawText}>{result}</pre>
+                                    </details>
+                                </div>
+                            </>
+                        ) : (
+                            <div className={styles.noMatch}>
+                                <h3>일치하는 술을 찾지 못했습니다.</h3>
+                                <p>인식된 텍스트:</p>
+                                <pre>{result}</pre>
+                            </div>
+                        )}
+                    </div>
 
                     <button onClick={handleRetry} className={styles.retryButton} style={{ marginTop: '40px', padding: '15px 40px', fontSize: '1.3rem' }}>
                         다른 술 분석하기

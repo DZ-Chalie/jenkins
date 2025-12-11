@@ -17,29 +17,59 @@ def search_liquor_fuzzy(text: str):
         print("❌ Elasticsearch client not available")
         return None
 
-    # Search query: Match 'name' in 'liquor_integrated' index
+    # Search query: Multi-level scoring for better accuracy
     index_name = "liquor_integrated"
     
     query = {
         "query": {
             "bool": {
                 "should": [
+                    # 1. Exact match (highest priority)
+                    {
+                        "term": {
+                            "name.keyword": {
+                                "value": text,
+                                "boost": 100.0
+                            }
+                        }
+                    },
+                    # 2. Exact match (case-insensitive, all words must match)
+                    {
+                        "match": {
+                            "name": {
+                                "query": text,
+                                "operator": "and",
+                                "boost": 50.0
+                            }
+                        }
+                    },
+                    # 3. Romanized match (for English OCR input like "Baekseju" → "백세주")
+                    {
+                        "match": {
+                            "name.romanized": {
+                                "query": text,
+                                "operator": "or",
+                                "boost": 40.0
+                            }
+                        }
+                    },
+                    # 4. Phonetic match (pronunciation-based fuzzy matching)
+                    {
+                        "match": {
+                            "name.phonetic": {
+                                "query": text,
+                                "boost": 20.0
+                            }
+                        }
+                    },
+                    # 5. Fuzzy match (partial word matching with typo tolerance)
                     {
                         "match": {
                             "name": {
                                 "query": text,
                                 "fuzziness": "AUTO",
-                                "boost": 1.0, 
+                                "boost": 10.0,
                                 "operator": "or"
-                            }
-                        }
-                    },
-                    {
-                        "match": {
-                            "name.ngram": { 
-                                "query": text,
-                                "fuzziness": "AUTO",
-                                "boost": 10.0
                             }
                         }
                     }
@@ -47,7 +77,7 @@ def search_liquor_fuzzy(text: str):
                 "minimum_should_match": 1
             }
         },
-        "min_score": 1.0, 
+        "min_score": 3.0,  # Increased threshold
         "size": 10
     }
 
@@ -93,8 +123,10 @@ def search_liquor_fuzzy(text: str):
                 "url": source.get('url', ''),
                 "tags": [], 
                 "score": score,
+                "province": source.get('region', {}).get('province'),
+                "city": source.get('region', {}).get('city'),
                 "detail": {
-                    "알콜도수": f"{source.get('alcohol')}%",
+                    "알콜도수": f"{source.get('alcohol', 0) * 100:.1f}%",
                     "용량": source.get('volume'),
                     "종류": source.get('type'),
                     "원재료": source.get('ingredients'),
@@ -183,8 +215,19 @@ async def search_by_region(
     if city:
         must_conditions.append({"match": {"region.city": city}})
 
+    if city:
+        must_conditions.append({"match": {"region.city": city}})
+
     if season:
-        must_conditions.append({"match": {"season": season}})
+        # Map Korean season to English for ES
+        season_map = {
+            "봄": "Spring",
+            "여름": "Summer",
+            "가을": "Autumn",
+            "겨울": "Winter"
+        }
+        english_season = season_map.get(season, season) # Default to original if no match (e.g. already English)
+        must_conditions.append({"match": {"season": english_season}})
 
     query = {
         "query": {
@@ -193,7 +236,17 @@ async def search_by_region(
             }
         },
         "sort": [
-            {"lowest_price": {"order": "asc", "missing": "_last"}} 
+            # 1. Prioritize items with lowest_price (online shops)
+            {"_script": {
+                "type": "number",
+                "script": {
+                    "source": "doc['lowest_price'].size() > 0 ? 0 : (doc['encyclopedia_price_text.keyword'].size() > 0 ? 1 : 2)",
+                    "lang": "painless"
+                },
+                "order": "asc"
+            }},
+            # 2. Then sort by actual price (ascending)
+            {"lowest_price": {"order": "asc", "missing": "_last"}}
         ],
         "size": size
     }
@@ -212,7 +265,7 @@ async def search_by_region(
                 "name": name,
                 "image_url": source.get('image_url'),
                 "type": source.get('type') or "전통주",
-                "alcohol": f"{source.get('alcohol')}%",
+                "alcohol": f"{source.get('alcohol', 0) * 100:.1f}%",
                 "price": source.get('lowest_price', 0), # Direct from unified index
                 "volume": source.get('volume'),
                 "province": source.get('region', {}).get('province'),
@@ -225,8 +278,10 @@ async def search_by_region(
             for item in results:
                 type_name = item.get("type", "")
                 item["weather_score"] = weights.get(type_name, 1)
-            # Sort by weather_score descending, then by price ascending
-            results.sort(key=lambda x: (-x.get("weather_score", 1), x.get("price", 999999)))
+                # Add has_price flag for sorting priority
+                item["has_price"] = 1 if (item.get("price") and item.get("price") > 0) else 0
+            # Sort by: 1) has_price (desc), 2) weather_score (desc), 3) price (asc)
+            results.sort(key=lambda x: (-x.get("has_price", 0), -x.get("weather_score", 1), x.get("price", 999999)))
             
         return results
 
@@ -274,7 +329,7 @@ async def get_drink_detail(drink_id: int):
             "description": source.get('description') or source.get('intro', ''),
             "intro": source.get('intro'),
             "image_url": source.get('image_url'),
-            "abv": f"{source.get('alcohol')}%",
+            "abv": f"{source.get('alcohol', 0) * 100:.1f}%",
             "volume": source.get('volume'),
             "type": source.get('type'),
             "foods": source.get('foods', []),
@@ -290,12 +345,16 @@ async def get_drink_detail(drink_id: int):
             "province": source.get('region', {}).get('province'),
             "city": source.get('region', {}).get('city'),
             "detail": {
-                "알콜도수": f"{source.get('alcohol')}%",
+                "알콜도수": f"{source.get('alcohol', 0) * 100:.1f}%",
                 "용량": source.get('volume'),
                 "종류": source.get('type'),
                 "원재료": source.get('ingredients', ''),
                 "수상내역": ", ".join(source.get('awards', [])) if isinstance(source.get('awards'), list) else str(source.get('awards', ''))
-            }
+            },
+            # NEW: Encyclopedia price fields
+            "price_is_reference": source.get('price_is_reference', False),
+            "encyclopedia_price_text": source.get('encyclopedia_price_text'),
+            "encyclopedia_url": source.get('encyclopedia_url')
         }
 
     except HTTPException as he:
@@ -312,7 +371,7 @@ def search_similar_drinks(name: str, exclude_id: Optional[int] = None):
     if not es:
         return []
 
-    index_name = "drink_info"
+    index_name = "liquor_integrated"  # Fixed: was drink_info
     
     # Fuzzy search query
     query = {
@@ -321,7 +380,7 @@ def search_similar_drinks(name: str, exclude_id: Optional[int] = None):
                 "must": [
                     {
                         "match": {
-                            "drink_name": {
+                            "name": {  # Changed from drink_name
                                 "query": name,
                                 "fuzziness": "AUTO",
                                 "operator": "or" # Allow partial matches for similarity
@@ -337,7 +396,7 @@ def search_similar_drinks(name: str, exclude_id: Optional[int] = None):
     
     if exclude_id is not None:
         query["query"]["bool"]["must_not"].append({
-            "term": {"drink_id": exclude_id}
+            "term": {"drink_id": exclude_id}  # Use drink_id consistently
         })
 
     try:
@@ -348,11 +407,11 @@ def search_similar_drinks(name: str, exclude_id: Optional[int] = None):
         for hit in hits:
             source = hit['_source']
             results.append({
-                "id": source.get('drink_id'),
-                "name": source.get('drink_name'),
-                "image_url": source.get('drink_image_url'),
+                "id": source.get('drink_id'),  # Use drink_id from ES
+                "name": source.get('name'),
+                "image_url": source.get('image_url'),
                 "score": hit['_score']
-            })
+           })
             
         return results
 
@@ -382,15 +441,102 @@ async def get_drink_list(page: int = 1, size: int = 10, query: Optional[str] = N
         if query:
             es_query = {
                 "query": {
-                    "multi_match": {
-                        "query": query,
-                        "fields": ["name", "intro", "description"],
-                        "fuzziness": "AUTO"
+                    "bool": {
+                        "should": [
+                            # 1. Exact name match (highest priority)
+                            {
+                                "term": {
+                                    "name.keyword": {
+                                        "value": query,
+                                        "boost": 100.0
+                                    }
+                                }
+                            },
+                            # 2. Exact name match (case-insensitive, all words)
+                            {
+                                "match": {
+                                    "name": {
+                                        "query": query,
+                                        "operator": "and",
+                                        "boost": 50.0
+                                    }
+                                }
+                            },
+                            # 3. Fuzzy name match (partial word matching)
+                            {
+                                "match": {
+                                    "name": {
+                                        "query": query,
+                                        "fuzziness": "AUTO",
+                                        "boost": 10.0,
+                                        "operator": "or"
+                                    }
+                                }
+                            },
+                            # 4. ngram name match
+                            {
+                                "match": {
+                                    "name.ngram": { 
+                                        "query": query,
+                                        "boost": 5.0
+                                    }
+                                }
+                            },
+                            # 5. Ingredients match
+                            {
+                                "match": {
+                                    "ingredients": {
+                                        "query": query,
+                                        "boost": 5.0,
+                                        "operator": "and"
+                                    }
+                                }
+                            },
+                            # 6. Province match - Increased boost significantly
+                            {
+                                "match": {
+                                    "region.province": {
+                                        "query": query,
+                                        "boost": 20.0
+                                    }
+                                }
+                            },
+                            # 7. City match - Increased boost significantly
+                            {
+                                "match": {
+                                    "region.city": {
+                                        "query": query,
+                                        "boost": 20.0
+                                    }
+                                }
+                            },
+                            # 8. Food pairing match
+                            {
+                                "match": {
+                                    "foods": {
+                                        "query": query,
+                                        "boost": 10.0,
+                                        "operator": "and"
+                                    }
+                                }
+                            },
+                            # 9. Context/Story match (Intro, Description, Tags)
+                            # Changed to "and" operator to avoid matching just "liquor" in "Gyeongsang-do liquor"
+                            {
+                                "multi_match": {
+                                    "query": query,
+                                    "fields": ["intro", "description", "tags"],
+                                    "boost": 1.5,
+                                    "operator": "and"
+                                }
+                            }
+                        ],
+                        "minimum_should_match": 1
                     }
                 },
                 "from": from_index,
-                "size": size,
-                "sort": [{"drink_id": {"order": "asc"}}]
+                "size": size
+                # No sort specified - use relevance score
             }
         else:
             es_query = {
@@ -413,7 +559,7 @@ async def get_drink_list(page: int = 1, size: int = 10, query: Optional[str] = N
                 "name": source.get('name'),
                 "image_url": source.get('image_url'),
                 "type": source.get('type') or "전통주",
-                "alcohol": f"{source.get('alcohol')}%",
+                "alcohol": f"{source.get('alcohol', 0) * 100:.1f}%",
                 "volume": source.get('volume'),
                 "price": source.get('lowest_price', 0),
                 "intro": source.get('intro', '') or source.get('description', ''),

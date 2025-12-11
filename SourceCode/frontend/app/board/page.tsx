@@ -14,8 +14,6 @@ interface FlavorProfile {
     throat: number;
 }
 
-
-
 interface TastingNote {
     _id: string;
     liquor_id: number;
@@ -113,11 +111,11 @@ export default function BoardPage() {
 
                                 <div className={styles.chartContainer}>
                                     {post.images && post.images.length > 0 && (
-                                        <div style={{ marginBottom: 15 }}>
+                                        <div>
                                             <img
                                                 src={post.images[0]}
                                                 alt={post.liquor_name}
-                                                style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                                                className={styles.chartImage}
                                             />
                                         </div>
                                     )}
@@ -133,7 +131,7 @@ export default function BoardPage() {
                                                 <PolarGrid />
                                                 <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
                                                 <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
-                                                <Radar name="맛" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                                                <Radar name="맛" dataKey="A" stroke="#8d6e63" fill="#8d6e63" fillOpacity={0.6} />
                                             </RadarChart>
                                         </ResponsiveContainer>
                                     </div>

@@ -17,6 +17,12 @@ interface Cocktail {
     youtube_thumbnail_url?: string;
 }
 
+interface HansangItem {
+    name: string;
+    image_url?: string;
+    reason: string;
+    link_url?: string;
+}
 
 export default function DrinkDetailPage() {
     const params = useParams();
@@ -26,6 +32,8 @@ export default function DrinkDetailPage() {
     const [isGeneratingCocktail, setIsGeneratingCocktail] = useState<boolean>(false);
     const [generatedFood, setGeneratedFood] = useState<{ name: string, reason: string } | null>(null);
     const [generatedCocktails, setGeneratedCocktails] = useState<Cocktail[]>([]);
+    const [isGeneratingHansang, setIsGeneratingHansang] = useState<boolean>(false);
+    const [generatedHansang, setGeneratedHansang] = useState<HansangItem[]>([]);
 
     const generateCocktail = async (drinkName: string) => {
         setIsGeneratingCocktail(true);
@@ -65,6 +73,32 @@ export default function DrinkDetailPage() {
         }
     };
 
+    const generateHansang = async (province: string, city: string) => {
+        setIsGeneratingHansang(true);
+        try {
+            const response = await fetch('/api/python/hansang/recommend', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    drink_name: drink?.name || '',
+                    province,
+                    city,
+                    drink_description: drink?.description || drink?.intro || ''
+                }),
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setGeneratedHansang(data.items || []);
+            } else {
+                console.error("Failed to generate hansang:", await response.text());
+            }
+        } catch (error) {
+            console.error("Failed to generate hansang", error);
+        } finally {
+            setIsGeneratingHansang(false);
+        }
+    };
+
     useEffect(() => {
         const fetchDrink = async () => {
             try {
@@ -89,7 +123,7 @@ export default function DrinkDetailPage() {
     if (loading) {
         return (
             <div className={styles.container} style={{
-                backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/backgroud.PNG')",
+                backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/background.png')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundAttachment: 'fixed',
@@ -106,7 +140,7 @@ export default function DrinkDetailPage() {
     if (!drink) {
         return (
             <div className={styles.container} style={{
-                backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/backgroud.PNG')",
+                backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/background.png')",
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundAttachment: 'fixed',
@@ -122,7 +156,7 @@ export default function DrinkDetailPage() {
 
     return (
         <div className={styles.container} style={{
-            backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/backgroud.PNG')",
+            backgroundImage: "linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url('/background.png')",
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundAttachment: 'fixed',
@@ -139,6 +173,9 @@ export default function DrinkDetailPage() {
                     generatedFood={generatedFood}
                     generatedCocktails={generatedCocktails}
                     isGeneratingCocktail={isGeneratingCocktail}
+                    onGenerateHansang={generateHansang}
+                    generatedHansang={generatedHansang}
+                    isGeneratingHansang={isGeneratingHansang}
                 />
             </div>
         </div>

@@ -56,8 +56,9 @@
   gap: 1rem;
   z-index: 1;
   padding-top: 80px;
-  /* Space for navbar/header if any, or just top spacing */
-  padding-bottom: 2rem;
+  /* Match header height exactly */
+  padding-bottom: 1rem;
+  /* Reduced for tighter fit */
   align-items: flex-start;
   justify-content: center;
   overflow: hidden;
@@ -100,6 +101,8 @@
   /* Enable internal scrolling for right panel if needed */
   padding-right: 10px;
   /* Space for scrollbar */
+  padding-top: 10px;
+  /* Reduced for tighter fit */
 }
 
 .sideDishPanel {

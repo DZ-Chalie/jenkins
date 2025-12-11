@@ -82,8 +82,7 @@ export default function MyPage() {
             {/* Tasting Notes Section */}
             <div className={styles.sectionTitle}>
                 <h2>🍶 나의 기록 모아보기</h2>
-                {/* Removed Write Button */}
-                <Link href="/board/write" style={{ fontSize: '0.9rem', color: '#666', textDecoration: 'none' }}>
+                <Link href="/board/write">
                     + 새 글 쓰러 가기
                 </Link>
             </div>
@@ -91,7 +90,7 @@ export default function MyPage() {
             {notes.length === 0 ? (
                 <div className={styles.emptyState}>
                     <p>아직 작성된 시음 노트가 없습니다.</p>
-                    <Link href="/board/write" style={{ color: '#333', fontWeight: 'bold' }}>
+                    <Link href="/board/write">
                         첫 번째 기록 남기기
                     </Link>
                 </div>
@@ -123,13 +122,13 @@ export default function MyPage() {
                                 <span className={styles.tag}>⭐ {note.rating}</span>
                                 {note.tags.map(tag => <span key={tag} className={styles.tag}>{tag}</span>)}
                             </div>
-                            <div className={styles.actions} style={{ marginTop: '15px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <div className={styles.actions}>
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         router.push(`/board/write?edit=${note._id}`);
                                     }}
-                                    style={{ padding: '5px 10px', fontSize: '0.8rem', cursor: 'pointer', background: '#f0f0f0', border: 'none', borderRadius: '4px' }}
+                                    className={styles.editButton}
                                 >
                                     수정
                                 </button>
@@ -150,7 +149,7 @@ export default function MyPage() {
                                             }
                                         }
                                     }}
-                                    style={{ padding: '5px 10px', fontSize: '0.8rem', cursor: 'pointer', background: '#ffeeee', color: 'red', border: 'none', borderRadius: '4px' }}
+                                    className={styles.deleteButton}
                                 >
                                     삭제
                                 </button>

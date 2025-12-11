@@ -6,11 +6,11 @@ import pymysql
 from typing import List, Optional
 from googleapiclient.discovery import build
 
-DB_HOST = "192.168.0.36"
-DB_PORT = 3306
-DB_USER = "root"
-DB_PASS = os.environ.get("MARIADB_ROOT_PASSWORD", "pass123#")
-DB_NAME = "drink"
+DB_HOST = os.getenv("MARIADB_HOST", "192.168.0.36")
+DB_PORT = int(os.getenv("MARIADB_PORT", 3306))
+DB_USER = os.getenv("MARIADB_USER", "root")
+DB_PASS = os.getenv("MARIADB_ROOT_PASSWORD", "pass123#")
+DB_NAME = os.getenv("MARIADB_DATABASE", "drink")
 
 def get_db_connection():
     return pymysql.connect(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -27,6 +27,13 @@ interface DrinkListResponse {
     total_pages: number;
 }
 
+interface AutocompleteItem {
+    id: number;
+    name: string;
+    image_url: string;
+    score: number;
+}
+
 function InfoContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -38,10 +45,15 @@ function InfoContent() {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchInput, setSearchInput] = useState("");
 
+    // Autocomplete state
+    const [autocompleteResults, setAutocompleteResults] = useState<AutocompleteItem[]>([]);
+    const [showAutocomplete, setShowAutocomplete] = useState(false);
+    const searchTimeout = useRef<NodeJS.Timeout | null>(null);
+
     const fetchDrinks = async (page: number = 1, query: string = "") => {
         setLoading(true);
         try {
-            const url = `/api/python/search/list?page=${page}&size=12${query ? `&query=${encodeURIComponent(query)}` : ''}`;
+            const url = `/api/python/search/list?page=${page}&size=15${query ? `&query=${encodeURIComponent(query)}` : ''}`;
             const response = await fetch(url);
             if (response.ok) {
                 const data: DrinkListResponse = await response.json();
@@ -69,10 +81,48 @@ function InfoContent() {
         fetchDrinks(page, query);
     }, [searchParams]);
 
+    // Autocomplete handler with debounce
+    const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const query = e.target.value;
+        setSearchInput(query);
+
+        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+        if (query.length > 1) {
+            searchTimeout.current = setTimeout(async () => {
+                try {
+                    const res = await fetch("/api/python/search", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ query })
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data?.candidates) {
+                            setAutocompleteResults(data.candidates);
+                            setShowAutocomplete(true);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Autocomplete search failed", err);
+                }
+            }, 300);
+        } else {
+            setShowAutocomplete(false);
+        }
+    };
+
+    const selectLiquor = (liquor: AutocompleteItem) => {
+        router.push(`/drink/${liquor.id}`);
+        setSearchInput("");
+        setShowAutocomplete(false);
+    };
+
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         const query = searchInput.trim();
         setCurrentPage(1);
+        setShowAutocomplete(false);
         router.push(`/info?page=1${query ? `&q=${encodeURIComponent(query)}` : ''}`);
     };
 
@@ -102,17 +152,59 @@ function InfoContent() {
                     <h1 className={styles.title}>전통주 정보 찾기</h1>
                 </div>
 
-                <form onSubmit={handleSearch} className={styles.searchForm}>
+                <form onSubmit={handleSearch} className={styles.searchForm} style={{ position: 'relative' }}>
                     <input
                         type="text"
                         value={searchInput}
-                        onChange={(e) => setSearchInput(e.target.value)}
+                        onChange={handleSearchInputChange}
                         placeholder="전통주 이름을 검색해보세요..."
                         className={styles.searchInput}
                     />
                     <button type="submit" className={styles.searchButton}>
                         검색
                     </button>
+
+                    {/* Autocomplete Dropdown */}
+                    {showAutocomplete && autocompleteResults.length > 0 && (
+                        <ul className={styles.autocompleteDropdown}>
+                            {autocompleteResults.map((item, idx) => (
+                                <li
+                                    key={idx}
+                                    onClick={() => selectLiquor(item)}
+                                    className={styles.autocompleteItem}
+                                >
+                                    {item.image_url ? (
+                                        <img
+                                            src={`/api/image-proxy?url=${encodeURIComponent(item.image_url)}`}
+                                            alt=""
+                                            style={{
+                                                width: 40,
+                                                height: 40,
+                                                marginRight: 12,
+                                                borderRadius: 6,
+                                                objectFit: 'cover'
+                                            }}
+                                        />
+                                    ) : (
+                                        <span
+                                            style={{
+                                                width: 40,
+                                                height: 40,
+                                                marginRight: 12,
+                                                borderRadius: 6,
+                                                background: '#eee',
+                                                display: 'inline-block'
+                                            }}
+                                        />
+                                    )}
+                                    <span style={{ flex: 1 }}>{item.name}</span>
+                                    <span style={{ fontSize: '0.75rem', color: '#999', marginLeft: 10 }}>
+                                        {item.score.toFixed(1)}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </form>
 
                 {loading ? (
